@@ -1,6 +1,6 @@
 {
   "name": "tokseal",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Seal your AI coding usage into a GitHub badge. Local-first token stats, a grade, and a shareable card \u2014 your data never leaves your machine.",
   "type": "module",
   "bin": {
@@ -11,7 +11,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "prepublishOnly": "npm run build && cp ../../README.md ./README.md"
   },
   "keywords": [
@@ -29,10 +29,6 @@
     "cost",
     "contribution-graph"
   ],
-  "dependencies": {
-    "@tokseal/core": "^0.2.0",
-    "picocolors": "^1.1.1"
-  },
   "license": "MIT",
   "engines": {
     "node": ">=18"
@@ -48,6 +44,8 @@
   "author": "Choi Minho <https://github.com/LenChoi>",
   "devDependencies": {
     "typescript": "^7.0.2",
-    "@types/node": "^26.4.1"
+    "@types/node": "^26.4.1",
+    "@tokseal/core": "^0.2.0",
+    "tsup": "^8.5.1"
   }
 }
