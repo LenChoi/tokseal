@@ -14,3 +14,12 @@ export async function collect(): Promise<UsageReport> {
   const events = await parseClaude();
   return aggregate(events);
 }
+export {
+  toSubmission,
+  reportFromSubmission,
+  gradeFromSubmission,
+  validateSubmission,
+  SUBMISSION_VERSION,
+  type Submission,
+  type SubmissionModel,
+} from './submission.js';

@@ -2,13 +2,15 @@
   "name": "tokseal-monorepo",
   "private": true,
   "version": "0.0.0",
-  "description": "tokseal — seal your AI coding usage into a GitHub badge. Local-first token stats, grade, and a shareable card.",
+  "description": "tokseal \u2014 seal your AI coding usage into a GitHub badge. Local-first token stats, grade, and a shareable card.",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
     "build": "npm run build -w @tokseal/core && npm run build -w tokseal",
+    "build:web": "npm run build -w @tokseal/web",
+    "dev:web": "npm run dev -w @tokseal/web",
     "cli": "node --import tsx packages/cli/src/index.ts"
   },
   "license": "MIT",

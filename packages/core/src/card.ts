@@ -6,8 +6,9 @@
 
 import type { UsageReport } from './types.js';
 import type { Grade } from './grade.js';
+import { pixelText, pixelTextWidth, pixelSprite } from './pixelfont.js';
 
-export type CardTheme = 'dark' | 'light';
+export type CardTheme = 'dark' | 'light' | 'pixel';
 
 export type CardOptions = {
   username?: string;
@@ -25,7 +26,7 @@ type Palette = {
   track: string;
 };
 
-const THEMES: Record<CardTheme, Palette> = {
+const THEMES: Record<'dark' | 'light', Palette> = {
   dark: {
     bg: '#0d1117',
     border: '#30363d',
@@ -82,6 +83,7 @@ const H = 195;
 
 export function renderCard(report: UsageReport, g: Grade, opts: CardOptions = {}): string {
   const theme = opts.theme ?? 'dark';
+  if (theme === 'pixel') return renderPixelCard(report, g, opts);
   const p = THEMES[theme];
   const gm = GRADE_META[g.level] ?? GRADE_META.C;
   const title = esc(opts.title ?? (opts.username ? `${opts.username}'s AI usage` : 'AI coding usage'));
@@ -143,5 +145,99 @@ export function renderCard(report: UsageReport, g: Grade, opts: CardOptions = {}
       <text x="${cx}" y="${cy + 22}" text-anchor="middle" class="gradeSub">top ${g.percentile.toFixed(0)}%</text>
     </g>
   </g>
+</svg>`;
+}
+
+// ---------------------------------------------------------------------------
+// Pixel theme: every glyph is drawn as rects from a 5×7 bitmap font, so the
+// card looks identical in GitHub READMEs (no web fonts) and stays crisp.
+// ---------------------------------------------------------------------------
+
+const PX = {
+  bg: '#0b0716',
+  panel: '#1a1130',
+  line: '#3b2a60',
+  lineHi: '#6a4fa3',
+  fg: '#f3ecff',
+  muted: '#a596c9',
+  coral: '#f0703c',
+  gold: '#ffd45e',
+};
+
+const SEAL_SPRITE = {
+  palette: { o: '#9c3e19', c: '#f0703c', h: '#ffa47a', w: '#f3ecff', k: '#0b0716' },
+  rows: [
+    '.....oooooo.....', '...oocccccccoo..', '..occhhccccccco.', '.occhccccccccco.',
+    '.ochcccckkcccco.', 'occcccckwwkcccco', 'occccckwwwwkccco', 'occcckwwwwwwkcco',
+    'occcckwwwwwwkcco', 'occccckwwwwkccco', 'occcccckwwkcccco', '.occcccckkccccoo',
+    '.occcccccccccoo.', '..occccccccooo..', '...oocccccoo....', '.....oooooo.....',
+  ],
+};
+
+/** Notched (pixel-corner) rectangle: two overlapping rects. */
+function notched(x: number, y: number, w: number, h: number, n: number, fill: string): string {
+  return `<rect x="${x + n}" y="${y}" width="${w - 2 * n}" height="${h}" fill="${fill}"/><rect x="${x}" y="${y + n}" width="${w}" height="${h - 2 * n}" fill="${fill}"/>`;
+}
+
+function renderPixelCard(report: UsageReport, g: Grade, opts: CardOptions): string {
+  const gm = GRADE_META[g.level] ?? GRADE_META.C;
+  const t = report.totals;
+  const title = (opts.title ?? (opts.username ? opts.username : 'AI CODING USAGE')).toUpperCase().slice(0, 22);
+  const sub = `SEALED BY TOKSEAL  ${report.dateRange.start ?? ''} > ${report.dateRange.end ?? ''}`;
+  const label = esc(`${title}: grade ${g.level}`);
+
+  const stats: Array<[string, string]> = [
+    ['TOKENS', humanTokens(t.totalTokens)],
+    ['EST. COST', humanCost(t.cost)],
+    ['ACTIVE DAYS', String(t.activeDays)],
+    ['MESSAGES', humanTokens(t.messageCount)],
+    ['SESSIONS', humanTokens(t.sessionCount)],
+    ['MODELS', String(report.models.length)],
+  ];
+
+  const parts: string[] = [];
+  // frame
+  parts.push(notched(0, 0, W, H, 4, PX.line));
+  parts.push(notched(4, 4, W - 8, H - 8, 4, PX.bg));
+  parts.push(`<rect x="8" y="8" width="${W - 16}" height="4" fill="${PX.lineHi}"/>`); // top bevel
+  parts.push(`<rect x="8" y="${H - 12}" width="${W - 16}" height="4" fill="#07040f"/>`); // bottom shadow
+  // stripe strip at the very bottom
+  for (let x = 8; x < W - 8; x += 16) parts.push(`<rect x="${x}" y="${H - 8}" width="8" height="4" fill="${PX.line}"/>`);
+
+  // header
+  parts.push(pixelText(title, 24, 24, 2, PX.coral));
+  parts.push(pixelText(sub, 24, 46, 1, PX.muted));
+  parts.push(pixelSprite(SEAL_SPRITE.rows, SEAL_SPRITE.palette, W - 24 - 32, 20, 2));
+
+  // stats grid
+  stats.forEach(([lbl, val], i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = 24 + col * 152;
+    const y = 74 + row * 30;
+    parts.push(pixelText(lbl, x, y + 6, 1, PX.muted));
+    const vw = pixelTextWidth(val, 2);
+    parts.push(pixelText(val, x + 128 - vw, y, 2, i === 0 ? PX.gold : PX.fg));
+  });
+
+  // grade box
+  const bx = 340, by = 64, bw = 106, bh = 88;
+  parts.push(notched(bx, by, bw, bh, 4, gm.color));
+  parts.push(`<rect x="${bx + 4}" y="${by + 4}" width="${bw - 8}" height="4" fill="#ffffff" opacity=".45"/>`);
+  parts.push(`<rect x="${bx + 4}" y="${by + bh - 8}" width="${bw - 8}" height="4" fill="#000000" opacity=".35"/>`);
+  parts.push(`<rect x="${bx + bw - 8}" y="${by + 4}" width="4" height="${bh - 8}" fill="#000000" opacity=".35"/>`);
+  parts.push(notched(bx + 4, by + bh, bw - 8, 6, 2, '#07040f'));
+  const gs = 4;
+  const gw = pixelTextWidth(g.level, gs);
+  parts.push(pixelText(g.level, bx + (bw - gw) / 2, by + 14, gs, PX.bg));
+  const top = `TOP ${g.percentile.toFixed(0)}%`;
+  parts.push(pixelText(top, bx + (bw - pixelTextWidth(top, 1)) / 2, by + 58, 1, PX.bg));
+
+  // footer
+  parts.push(pixelText('◆ TOKSEAL', 24, 166, 1, PX.coral));
+  parts.push(pixelText('TOKSEAL.DEV', W - 24 - pixelTextWidth('TOKSEAL.DEV', 1), 166, 1, PX.muted));
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}" shape-rendering="crispEdges">
+${parts.join('\n')}
 </svg>`;
 }
