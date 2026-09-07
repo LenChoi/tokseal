@@ -8,7 +8,7 @@ your GitHub profile — proof that you build with AI, at a glance.
 > you explicitly opt in to the leaderboard.
 
 <!-- Once the card endpoint is live, this becomes a live image: -->
-<!-- ![tokseal card](https://tokseal.dev/api/card?user=LenChoi&theme=pixel) -->
+<!-- ![tokseal card](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel) -->
 
 ![tokseal pixel card](apps/web/public/sample-card.svg)
 
@@ -50,8 +50,8 @@ token graph for your README, next to the classic contribution grass.
   hi-score board.
 
 ```md
-![tokseal graph](https://tokseal.dev/api/graph?user=LenChoi)
-![tokseal](https://tokseal.dev/api/card?user=LenChoi&theme=pixel)
+![tokseal graph](https://tokseal.vercel.app/api/graph?user=LenChoi)
+![tokseal](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel)
 ```
 
 ## Quick start
@@ -61,14 +61,14 @@ npx tokseal            # your usage summary and grade
 npx tokseal card       # write an SVG card (tokseal.svg)
 npx tokseal --json     # full report as JSON
 npx tokseal login      # opt in: link this machine to your GitHub account (+ auto-submit hook)
-npx tokseal submit     # upload per-day aggregate counts → tokseal.dev/u/<you>
+npx tokseal submit     # upload per-day aggregate counts → tokseal.vercel.app/u/<you>
 npx tokseal hook       # (re)install the Claude Code SessionEnd hook; `hook remove` to undo
 ```
 
 After `submit`, drop the live card in your README:
 
 ```md
-![tokseal](https://tokseal.dev/api/card?user=LenChoi&theme=pixel)
+![tokseal](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel)
 ```
 
 No install, no signup, no API key. tokseal reads local session logs directly.
@@ -163,7 +163,7 @@ source; until then the badge says what it is.
 - [x] Hosted card endpoint (`/api/card?user=…`) + leaderboard + profiles (`apps/web`)
 - [x] Opt-in `tokseal login` / `tokseal submit` with GitHub device-link flow
 - [x] AI contribution graph (`/api/graph`), per-day history, 30-day grade, streaks, SessionEnd auto-submit hook
-- [ ] Deploy: tokseal.dev on Vercel + Supabase, `npm publish`
+- [ ] Deploy: tokseal.vercel.app on Vercel + Supabase, `npm publish`
 - [x] More agents: Codex CLI, Gemini CLI, Qwen Code (experimental)
 - [x] Trust layer: repricing, physical limits, UNVERIFIED flags, audit log
 - [ ] More agents: opencode, Cursor (via export), Copilot CLI

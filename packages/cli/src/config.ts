@@ -8,7 +8,7 @@ export type Config = { server?: string; token?: string; login?: string; lastSubm
 const dir = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'tokseal');
 const file = join(dir, 'config.json');
 
-export const DEFAULT_SERVER = 'https://tokseal.dev';
+export const DEFAULT_SERVER = 'https://tokseal.vercel.app';
 
 export function readConfig(): Config {
   try {

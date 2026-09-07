@@ -245,7 +245,7 @@ function renderPixelCard(report: UsageReport, g: Grade, opts: CardOptions): stri
 
   // footer
   parts.push(pixelText('◆ TOKSEAL', 24, 166, 1, PX.coral));
-  const right = opts.updatedAt ? `UPDATED ${agoLabel(opts.updatedAt)}` : 'TOKSEAL.DEV';
+  const right = opts.updatedAt ? `UPDATED ${agoLabel(opts.updatedAt)}` : 'TOKSEAL.VERCEL.APP';
   parts.push(pixelText(right, W - 24 - pixelTextWidth(right, 1), 166, 1, PX.muted));
 
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}" shape-rendering="crispEdges">
