@@ -7,10 +7,10 @@ your GitHub profile — proof that you build with AI, at a glance.
 > Local-first: your usage is parsed on your machine. Nothing is uploaded unless
 > you explicitly opt in to the leaderboard.
 
-<!-- Once the card endpoint is live, this becomes a live image: -->
-<!-- ![tokseal card](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel) -->
+[![tokseal graph](https://tokseal.vercel.app/api/graph?user=LenChoi)](https://tokseal.vercel.app/u/LenChoi)
+[![tokseal card](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel)](https://tokseal.vercel.app/u/LenChoi)
 
-![tokseal pixel card](apps/web/public/sample-card.svg)
+Live from [tokseal.vercel.app](https://tokseal.vercel.app), updated a few minutes after every Claude Code session ends.
 
 The card's text is drawn from a built-in 5×7 bitmap font, so it looks
 pixel-perfect anywhere an SVG renders, including GitHub READMEs, which strip
@@ -34,8 +34,6 @@ external web fonts. Themes: `pixel` (default), `dark`, `light`.
 Commits measured effort when humans typed every line. tokseal's bet is that the
 honest signal now is how much you build *with* AI, so it gives you a per-day
 token graph for your README, next to the classic contribution grass.
-
-![tokseal graph](apps/web/public/sample-graph.svg)
 
 - **All-time history on the server.** `tokseal submit` uploads per-day
   aggregate counts and the server merges them by date, so your record survives
