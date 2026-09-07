@@ -10,3 +10,4 @@ coverage/
 next-env.d.ts
 packages/cli/README.md
 .mcp.json
+.vercel
