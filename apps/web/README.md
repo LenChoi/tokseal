@@ -16,7 +16,8 @@ Everything respects `prefers-reduced-motion`.
 | `/api/card?user=&theme=pixel\|dark\|light` | SVG card (same `renderCard` as the CLI; `pixel` default), 30-min cache |
 | `/link?code=` | Browser side of `tokseal login` (GitHub sign-in → approve device) |
 | `/api/device/start` · `/api/device/poll` · `/api/device/approve` | Device-link flow |
-| `/api/submit` | `Bearer tsk_…` + Submission JSON → upsert |
+| `/api/graph?user=&weeks=52&theme=` | AI contribution graph SVG (tokens per day), 5-min cache |
+| `/api/submit` | `Bearer tsk_…` + Submission v2 → merge `usage_days`, recompute all-time, 30-day grade, streak |
 
 Without Supabase env vars the site runs in **demo mode** (fake `demo-*` users, submit/login return 503).
 

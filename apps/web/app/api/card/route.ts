@@ -39,6 +39,7 @@ export async function GET(req: Request) {
     username: row.login,
     theme,
     title,
+    updatedAt: row.submittedAt,
   });
-  return new Response(svg, { headers: headers(1800) });
+  return new Response(svg, { headers: headers(300) });
 }

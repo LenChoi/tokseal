@@ -7,8 +7,10 @@
 
 import { writeFileSync } from 'node:fs';
 import pc from 'picocolors';
-import { parseClaude, aggregate, grade, renderCard, humanTokens, toSubmission } from '@tokseal/core';
+import { parseAll, aggregate, grade, renderCard, humanTokens, toSubmission, CLIENTS } from '@tokseal/core';
+import { createInterface } from 'node:readline/promises';
 import { DEFAULT_SERVER, configPath, readConfig, writeConfig } from './config.js';
+import { hookInstalled, installHook, uninstallHook, settingsPath } from './hook.js';
 
 type Args = { _: string[]; flags: Record<string, string | boolean> };
 
@@ -28,6 +30,8 @@ function parseArgs(argv: string[]): Args {
   }
   return { _, flags };
 }
+
+const VERSION = '0.2.0';
 
 const money = (n: number) => (n >= 1000 ? '$' + (n / 1000).toFixed(1) + 'K' : '$' + n.toFixed(0));
 
@@ -52,20 +56,37 @@ ${pc.bold('Usage')}
   tokseal card            Write an SVG card (default: tokseal.svg)
   tokseal login           Link this machine to your GitHub account (opt-in)
   tokseal submit          Upload aggregate totals to the leaderboard
-  tokseal logout          Forget the stored token
+  tokseal logout          Forget the stored token and remove the hook
+  tokseal hook            Install the Claude Code SessionEnd auto-submit hook
+  tokseal hook remove     Remove it
   tokseal --json          Print the full report as JSON
 
 ${pc.bold('Options')}
   --json                  Machine-readable output
   --out <file>            Card output path (with 'card')
   --theme <pixel|dark|light>  Card theme (default: pixel)
+  --client <ids>          Only these clients, comma-separated (${CLIENTS.map((c) => c.id).join(', ')})
   --user <name>           Name shown on the card
   --server <url>          Leaderboard server (default: ${DEFAULT_SERVER})
+  --quiet                 (submit) no output unless it fails
+  --debounce <sec>        (submit) skip if last submit was less than N seconds ago
+  --yes                   Skip prompts
   --help                  This help
 
-Data is read locally from ~/.claude/projects and never leaves your machine
-unless you run 'tokseal submit' — and then only totals, never content.
+${pc.bold('Clients')} (read locally, never uploaded as content)
+${CLIENTS.map((c) => `  ${c.id.padEnd(8)} ${c.name.padEnd(12)} ${pc.dim(c.location())}${c.experimental ? pc.yellow('  experimental') : ''}`).join('\n')}
+
+Nothing leaves your machine unless you run 'tokseal submit', and then only
+per-day aggregate counts, never content.
 `);
+}
+
+const clientsFrom = (flags: Args['flags']) => (typeof flags.client === 'string' ? flags.client.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
+
+async function collectReport(flags: Args['flags']) {
+  const { events, found, errors } = await parseAll(clientsFrom(flags));
+  for (const [id, err] of Object.entries(errors)) console.error(pc.yellow(`  ! ${id}: ${err}`));
+  return { report: aggregate(events), found };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -104,45 +125,82 @@ async function login(flags: Args['flags']) {
     writeConfig({ ...readConfig(), server, token, login: gh });
     console.log();
     console.log(pc.green(`  ✓ linked as @${gh}`) + pc.dim(`  (${configPath()})`));
+    console.log();
+    await offerHook(flags);
     console.log(pc.dim('  next: tokseal submit'));
     return;
   }
   throw new Error('login timed out — run tokseal login again');
 }
 
+async function offerHook(flags: Args['flags']) {
+  if (hookInstalled()) return;
+  let yes = flags.yes === true;
+  if (!yes && process.stdin.isTTY) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const a = await rl.question(`  Auto-submit after every Claude Code session? Adds a SessionEnd hook to ${settingsPath()} ${pc.dim('[Y/n] ')}`);
+    rl.close();
+    yes = a.trim() === '' || /^y/i.test(a);
+  }
+  if (!yes) { console.log(pc.dim('  skipped. Later: tokseal hook')); return; }
+  const p = installHook();
+  console.log(pc.green('  ✓ hook installed') + pc.dim(`  (${p})`));
+}
+
 async function submit(flags: Args['flags']) {
   const cfg = readConfig();
   const server = serverFrom(flags);
+  const quiet = flags.quiet === true;
+  const log = (...a: unknown[]) => { if (!quiet) console.log(...a); };
   if (!cfg.token) {
+    if (quiet) return; // hook on a machine that never linked: stay silent
     console.log(pc.yellow('Not linked yet. Run ') + pc.bold('tokseal login') + pc.yellow(' first.'));
     process.exit(1);
   }
-  const report = aggregate(await parseClaude());
+  const debounce = typeof flags.debounce === 'string' ? Number(flags.debounce) : 0;
+  if (debounce > 0 && cfg.lastSubmitAt && Date.now() - Date.parse(cfg.lastSubmitAt) < debounce * 1000) {
+    log(pc.dim(`  submitted ${Math.round((Date.now() - Date.parse(cfg.lastSubmitAt)) / 1000)}s ago; skipping (debounce ${debounce}s)`));
+    return;
+  }
+  const { report, found } = await collectReport(flags);
   const g = grade(report);
   const payload = toSubmission(report, g);
 
-  console.log();
-  console.log(`  Uploading ${pc.bold('aggregate totals only')} for @${cfg.login ?? '?'} → ${pc.dim(server)}`);
-  console.log(pc.dim(`  grade ${g.level} · ${humanTokens(report.totals.totalTokens)} tokens · ${report.totals.activeDays} days · ${payload.models.length} models`));
+  log();
+  log(pc.dim(`  clients: ${found.join(', ') || 'none'}`));
+  log(`  Uploading ${pc.bold('aggregate totals only')} for @${cfg.login ?? '?'} → ${pc.dim(server)}`);
+  log(pc.dim(`  ${payload.days.length} days · ${humanTokens(report.totals.totalTokens)} tokens · ${payload.models.length} models · no content, no paths`));
 
   const res = await fetch(`${server}/api/submit`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}`, 'x-tokseal-version': VERSION },
     body: JSON.stringify(payload),
   });
   if (res.status === 401) {
     console.log(pc.red('  token rejected — run tokseal login again'));
     process.exit(1);
   }
+  if (res.status === 422) {
+    const { reasons = [] } = (await res.json()) as { reasons?: string[] };
+    console.log(pc.red('  ✗ rejected by plausibility checks:'));
+    for (const r of reasons) console.log(pc.dim('    · ' + r));
+    process.exit(1);
+  }
+  if (res.status === 429) { log(pc.dim('  rate limited; try again in a minute')); return; }
   if (!res.ok) throw new Error(`submit failed (${res.status}): ${await res.text()}`);
-  const { profileUrl, cardUrl } = (await res.json()) as { profileUrl: string; cardUrl: string };
-  console.log(pc.green('  ✓ sealed'));
-  console.log(`  profile  ${pc.cyan(profileUrl)}`);
-  console.log(`  card     ${pc.cyan(cardUrl)}`);
-  console.log();
-  console.log(pc.dim('  Add to your README:'));
-  console.log(`  ![tokseal](${cardUrl})`);
-  console.log();
+  const r = (await res.json()) as { profileUrl: string; cardUrl: string; graphUrl: string; grade: string; allTimeTokens: number; streak: number; flags?: string[]; unpricedModels?: string[] };
+  if (r.flags?.length) { console.log(pc.yellow('  ! marked UNVERIFIED:')); for (const f of r.flags) console.log(pc.dim('    · ' + f)); }
+  if (r.unpricedModels?.length) log(pc.dim(`  unpriced models counted at $0: ${r.unpricedModels.join(', ')}`));
+  writeConfig({ ...readConfig(), lastSubmitAt: new Date().toISOString() });
+  log(pc.green('  ✓ sealed') + pc.dim(`  grade ${r.grade} · ${humanTokens(r.allTimeTokens)} all-time · ${r.streak}-day streak`));
+  log(`  profile  ${pc.cyan(r.profileUrl)}`);
+  log(`  graph    ${pc.cyan(r.graphUrl)}`);
+  log(`  card     ${pc.cyan(r.cardUrl)}`);
+  log();
+  log(pc.dim('  Add to your README:'));
+  log(`  ![tokseal graph](${r.graphUrl})`);
+  log(`  ![tokseal](${r.cardUrl})`);
+  log();
 }
 
 async function main() {
@@ -153,13 +211,20 @@ async function main() {
   if (cmd === 'login') return login(flags);
   if (cmd === 'submit') return submit(flags);
   if (cmd === 'logout') {
-    const { token: _t, login: _l, ...rest } = readConfig();
+    const { token: _t, login: _l, lastSubmitAt: _s, ...rest } = readConfig();
     writeConfig(rest);
+    if (hookInstalled()) { uninstallHook(); console.log(pc.dim('  hook removed')); }
     console.log(pc.green('✓ logged out'));
     return;
   }
+  if (cmd === 'hook') {
+    if (_[1] === 'remove') { const p = uninstallHook(); console.log(pc.green('✓ hook removed') + pc.dim(`  (${p})`)); return; }
+    if (hookInstalled()) { console.log(pc.dim(`hook already installed (${settingsPath()})`)); return; }
+    await offerHook({ ...flags, yes: true });
+    return;
+  }
 
-  const report = aggregate(await parseClaude());
+  const { report, found } = await collectReport(flags);
   const g = grade(report);
 
   if (cmd === 'card') {
@@ -180,8 +245,9 @@ async function main() {
   }
 
   if (report.totals.messageCount === 0) {
-    console.log(pc.yellow('No Claude Code usage found under ~/.claude/projects.'));
-    console.log(pc.dim('Use Claude Code for a bit, then run tokseal again.'));
+    console.log(pc.yellow('No local AI coding usage found.'));
+    console.log(pc.dim('Looked in:'));
+    for (const c of CLIENTS) console.log(pc.dim(`  ${c.name.padEnd(12)} ${c.location()}`));
     return;
   }
 
@@ -195,11 +261,20 @@ async function main() {
   console.log(`  ${pc.dim('Est. cost')}  ${pc.bold(money(t.cost))}`);
   console.log(`  ${pc.dim('Active')}     ${pc.bold(String(t.activeDays))} days   ${pc.dim('Sessions')} ${pc.bold(String(t.sessionCount))}   ${pc.dim('Messages')} ${pc.bold(humanTokens(t.messageCount))}`);
   console.log();
+  console.log(`  ${pc.dim('By client')}`);
+  for (const id of found) {
+    const rows = report.rows.filter((r) => r.client === id);
+    const tok = rows.reduce((a, r) => a + r.input + r.output + r.cacheRead + r.cacheWrite + r.reasoning, 0);
+    const cost = rows.reduce((a, r) => a + r.cost, 0);
+    const name = CLIENTS.find((c) => c.id === id)?.name ?? id;
+    console.log(`    ${name.padEnd(24)} ${pc.bold(money(cost).padStart(7))}  ${pc.dim(humanTokens(tok) + ' tokens')}`);
+  }
+  console.log();
   console.log(`  ${pc.dim('By model')}`);
-  for (const r of report.rows.slice(0, 8)) {
+  for (const r of report.rows.slice(0, 10)) {
     const bar = money(r.cost).padStart(7);
     const flag = r.priced ? '' : pc.yellow(' (unpriced)');
-    console.log(`    ${r.model.padEnd(24)} ${pc.bold(bar)}  ${pc.dim(String(r.messageCount) + ' msgs')}${flag}`);
+    console.log(`    ${pc.dim(r.client.padEnd(7))} ${r.model.padEnd(22)} ${pc.bold(bar)}  ${pc.dim(String(r.messageCount) + ' msgs')}${flag}`);
   }
   console.log();
   console.log(pc.dim('  tokseal card    → make a shareable SVG for your GitHub profile'));

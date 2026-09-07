@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { renderCard, reportFromSubmission, gradeFromSubmission } from '@tokseal/core';
+import { renderCard, reportFromSubmission, gradeFromSubmission, renderGraph } from '@tokseal/core';
 import { getLeaderboard, getSubmissionCount } from '@/lib/db';
 import { DEMO } from '@/lib/env';
 import { LeaderboardTable } from '@/components/LeaderboardTable';
@@ -17,8 +17,9 @@ export default async function Home() {
   const [rows, count] = await Promise.all([getLeaderboard(10), getSubmissionCount()]);
   const top = rows[0];
   const preview = top
-    ? renderCard(reportFromSubmission(top.submission), gradeFromSubmission(top.submission), { username: top.login, theme: 'pixel' })
+    ? renderCard(reportFromSubmission(top.submission), gradeFromSubmission(top.submission), { username: top.login, theme: 'pixel', updatedAt: top.submittedAt })
     : null;
+  const graph = top ? renderGraph(top.submission.days, { username: top.login, updatedAt: top.submittedAt, end: top.submittedAt.slice(0, 10) }) : null;
 
   return (
     <>
@@ -35,7 +36,7 @@ export default async function Home() {
               USAGE.
             </h1>
             <p className="mt-8 max-w-xl text-[22px] text-muted">
-              tokseal reads your local Claude Code sessions, grades how hard you lean on AI
+              tokseal reads your local Claude Code, Codex, and Gemini CLI sessions, grades how hard you lean on AI
               <span className="text-gold"> (S → C)</span>, and mints a card for your GitHub profile.
               Parsing happens on <span className="text-mint">your machine</span>. Nothing is uploaded unless you opt in.
             </p>
@@ -71,7 +72,7 @@ export default async function Home() {
         <div className="-mx-5 h-6 bg-[#120b22]" />
       </section>
 
-      <div className="-mx-5"><Marquee items={['local-first', 'no api key', 'no signup', 'grade S → C', 'svg card for github', 'opt-in leaderboard', 'mit licensed', 'claude code · codex · gemini soon']} /></div>
+      <div className="-mx-5"><Marquee items={['local-first', 'no api key', 'no signup', 'grade S → C', 'svg card for github', 'opt-in leaderboard', 'mit licensed', 'claude code · codex cli · gemini cli · qwen code']} /></div>
 
       {/* ---------------- STAGE 1: TERMINAL + CARD ---------------- */}
       <section className="py-24">
@@ -99,6 +100,30 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ---------------- AI GRASS ---------------- */}
+      <section className="py-12">
+        <SectionTitle kicker="NEW · AI CONTRIBUTIONS" title="GREEN SQUARES, BUT FOR TOKENS." />
+        <p className="reveal mt-6 max-w-3xl text-muted">
+          Commits measured effort when humans typed every line. Now the honest signal is how much you build <em className="text-fg">with</em> AI.
+          tokseal keeps a per-day token history on the server (aggregate counts only), so your record survives Claude Code&apos;s
+          30-day log cleanup, and a Claude Code hook re-submits after every session, so the README graph is minutes behind reality.
+        </p>
+        {graph && (
+          <div className="reveal mt-8 px-panel overflow-x-auto p-2" data-delay="1">
+            <div className="min-w-[700px] [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: graph }} />
+          </div>
+        )}
+        <div className="reveal mt-6 grid gap-4 md:grid-cols-3" data-delay="2">
+          {[
+            ['ALL-TIME', 'Every day you ever submitted, merged by date. Yours to put on a résumé.'],
+            ['30-DAY GRADE', 'The letter is computed over a rolling 30-day window so everyone is comparable.'],
+            ['STREAK', 'Consecutive active days. The graph shows it. The hi-score board ranks it.'],
+          ].map(([t, d]) => (
+            <div key={t} className="px-panel p-5"><h3 className="text-[11px] text-coral">{t}</h3><p className="mt-2 text-muted">{d}</p></div>
+          ))}
+        </div>
+      </section>
+
       {/* ---------------- HI-SCORES ---------------- */}
       <section className="py-12">
         <SectionTitle kicker="HI-SCORES" title="TOP PLAYERS" right={<span className="text-muted">{count} sealed{DEMO && ' · demo data'} · <Link href="/leaderboard" className="text-coral">see all →</Link></span>} />
@@ -110,9 +135,9 @@ export default async function Home() {
         <SectionTitle kicker="STAGE 2" title="HOW THE GRADE WORKS" />
         <div className="mt-12 grid gap-8 md:grid-cols-3">
           {[
-            ['01', 'PARSE', 'Reads token counts, model ids and timestamps from ~/.claude/projects. Never message content, never file paths.'],
+            ['01', 'PARSE', 'Reads token counts, model ids and timestamps from Claude Code, Codex CLI, Gemini CLI and Qwen Code logs. Never message content, never file paths.'],
             ['02', 'GRADE', 'Four signals: tokens, active days, messages, sessions. Smoothed with an exponential CDF, the curve github-readme-stats uses for rank. No cliffs, no single-metric farming.'],
-            ['03', 'SEAL', 'Renders a static SVG card. Optionally submit aggregate totals to the hi-score board with tokseal submit.'],
+            ['03', 'SEAL', 'Renders a static SVG card + contribution graph. tokseal login installs a Claude Code SessionEnd hook that re-submits aggregate totals after every session.'],
           ].map(([n, t, d], i) => (
             <div key={n} className="reveal px-panel p-6" data-delay={String(i)}>
               <div className="font-pixel text-[28px] text-coral">{n}</div>
@@ -140,13 +165,14 @@ export default async function Home() {
               ['✓', 'The leaderboard is opt-in: tokseal login + tokseal submit.'],
               ['✓', 'The upload is exactly toSubmission(): totals, per-model totals, grade, date range. Read it in the repo.'],
               ['✗', 'No message content. No file paths. No project names. No session ids.'],
+              ['!', 'Self-reported, like commit graphs. The server reprices from tokens, rejects impossible days, and marks implausible jumps UNVERIFIED.'],
             ].map(([m, t]) => (
-              <li key={t} className="flex gap-3"><span className={`font-pixel text-[12px] ${m === '✓' ? 'text-mint' : 'text-coral'}`}>{m}</span><span className="text-muted">{t}</span></li>
+              <li key={t} className="flex gap-3"><span className={`font-pixel text-[12px] ${m === '✓' ? 'text-mint' : m === '!' ? 'text-gold' : 'text-coral'}`}>{m}</span><span className="text-muted">{t}</span></li>
             ))}
           </ul>
           <div className="space-y-4">
             <CopyBlock label="Opt in (totals only)" text="npx tokseal login && npx tokseal submit" />
-            <CopyBlock label="README" text="![tokseal](https://tokseal.dev/api/card?user=YOU&theme=pixel)" />
+            <CopyBlock label="README" text={"![tokseal graph](https://tokseal.dev/api/graph?user=YOU)\n![tokseal](https://tokseal.dev/api/card?user=YOU&theme=pixel)"} />
           </div>
         </div>
       </section>

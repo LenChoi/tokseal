@@ -7,10 +7,10 @@
  * `/api/card` can reuse the exact same `renderCard` as the CLI.
  */
 
-import type { UsageReport, UsageRow } from './types.js';
+import type { DayBucket, UsageReport, UsageRow } from './types.js';
 import type { Grade } from './grade.js';
 
-export const SUBMISSION_VERSION = 1;
+export const SUBMISSION_VERSION = 2;
 
 export type SubmissionModel = {
   client: string;
@@ -24,12 +24,27 @@ export type SubmissionModel = {
   reasoning: number;
 };
 
+/** One day of aggregate usage. No content, no paths, no session ids — counts only. */
+export type SubmissionDay = {
+  date: string;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning: number;
+  cost: number;
+  messageCount: number;
+  sessionCount: number;
+};
+
 export type Submission = {
   version: number;
   grade: Grade['level'];
   percentile: number;
   totals: UsageReport['totals'];
   models: SubmissionModel[];
+  /** Per-day buckets. The server merges these by date so history survives local log cleanup. */
+  days: SubmissionDay[];
   clients: string[];
   dateRange: UsageReport['dateRange'];
   generatedAt: string;
@@ -52,10 +67,19 @@ export function toSubmission(report: UsageReport, g: Grade): Submission {
       cacheWrite: r.cacheWrite,
       reasoning: r.reasoning,
     })),
+    days: report.days.map((d) => ({
+      date: d.date,
+      input: d.input, output: d.output, cacheRead: d.cacheRead, cacheWrite: d.cacheWrite, reasoning: d.reasoning,
+      cost: Number(d.cost.toFixed(4)), messageCount: d.messageCount, sessionCount: d.sessionCount,
+    })),
     clients: [...report.clients],
     dateRange: { ...report.dateRange },
     generatedAt: report.generatedAt,
   };
+}
+
+export function daysFromSubmission(s: Submission): DayBucket[] {
+  return s.days.map((d) => ({ ...d }));
 }
 
 /** Rebuild enough of a UsageReport (no per-day buckets) to render a card. */
@@ -63,7 +87,7 @@ export function reportFromSubmission(s: Submission): UsageReport {
   const rows: UsageRow[] = s.models.map((m) => ({ ...m, priced: m.cost > 0 }));
   return {
     rows,
-    days: [],
+    days: daysFromSubmission(s),
     totals: { ...s.totals },
     dateRange: { ...s.dateRange },
     clients: [...s.clients],
@@ -76,6 +100,7 @@ export function gradeFromSubmission(s: Submission): Grade {
   return {
     level: s.grade,
     percentile: s.percentile,
+    windowDays: 30,
     signals: {
       tokens: s.totals.totalTokens,
       activeDays: s.totals.activeDays,
@@ -117,6 +142,23 @@ export function validateSubmission(input: unknown): { ok: true; value: Submissio
     });
   }
 
+  if (!Array.isArray(x.days) || x.days.length > 400) return { ok: false, error: 'bad days' };
+  const days: SubmissionDay[] = [];
+  const seen = new Set<string>();
+  for (const d of x.days as Record<string, unknown>[]) {
+    if (!d || typeof d !== 'object') return { ok: false, error: 'bad day' };
+    if (!isStr(d.date, 10) || !/^\d{4}-\d{2}-\d{2}$/.test(d.date) || seen.has(d.date)) return { ok: false, error: 'bad day.date' };
+    seen.add(d.date);
+    for (const k of ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning', 'cost', 'messageCount', 'sessionCount'] as const)
+      if (!isNum(d[k])) return { ok: false, error: `bad day.${k}` };
+    days.push({
+      date: d.date, input: d.input as number, output: d.output as number, cacheRead: d.cacheRead as number,
+      cacheWrite: d.cacheWrite as number, reasoning: d.reasoning as number, cost: d.cost as number,
+      messageCount: d.messageCount as number, sessionCount: d.sessionCount as number,
+    });
+  }
+  days.sort((a, b) => a.date.localeCompare(b.date));
+
   if (!Array.isArray(x.clients) || !x.clients.every((c) => isStr(c, 40)) || x.clients.length > 20)
     return { ok: false, error: 'bad clients' };
 
@@ -132,6 +174,7 @@ export function validateSubmission(input: unknown): { ok: true; value: Submissio
       percentile: x.percentile,
       totals: Object.fromEntries(totalKeys.map((k) => [k, t[k] as number])) as Submission['totals'],
       models,
+      days,
       clients: x.clients as string[],
       dateRange: { start: dr.start as string | null, end: dr.end as string | null },
       generatedAt: isStr(x.generatedAt, 40) ? x.generatedAt : new Date().toISOString(),

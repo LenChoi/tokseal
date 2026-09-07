@@ -21,19 +21,23 @@ export type UsageRow = TokenBreakdown & {
 export type DayBucket = TokenBreakdown & {
   date: string; // YYYY-MM-DD
   messageCount: number;
+  sessionCount: number;
   cost: number;
+};
+
+/** Totals shape shared by reports, windows, and submissions. */
+export type Totals = TokenBreakdown & {
+  totalTokens: number;
+  cost: number;
+  messageCount: number;
+  activeDays: number;
+  sessionCount: number;
 };
 
 export type UsageReport = {
   rows: UsageRow[];
   days: DayBucket[];
-  totals: TokenBreakdown & {
-    totalTokens: number;
-    cost: number;
-    messageCount: number;
-    activeDays: number;
-    sessionCount: number;
-  };
+  totals: Totals;
   dateRange: { start: string | null; end: string | null };
   clients: string[];
   models: string[];

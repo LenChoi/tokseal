@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getUser } from '@/lib/db';
+import { renderGraph, totalsFromDays, windowDays } from '@tokseal/core';
+import { getUser, getUserDays } from '@/lib/db';
 import { SITE_URL } from '@/lib/env';
-import { humanTokens, money } from '@/lib/format';
+import { humanTokens, money, relDate } from '@/lib/format';
 import { GradeBadge } from '@/components/GradeBadge';
 import { Avatar } from '@/components/Avatar';
 import { CopyBlock } from '@/components/CopyBlock';
@@ -18,26 +19,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const s = row.submission;
   return {
     title: `@${row.login} · grade ${s.grade}`,
-    description: `${humanTokens(s.totals.totalTokens)} tokens · ${s.totals.activeDays} active days · top ${s.percentile.toFixed(0)}%`,
-    openGraph: { images: [`${SITE_URL}/api/card?user=${row.login}&theme=dark`] },
+    description: `${humanTokens(row.allTime.tokens)} tokens all-time · ${row.streak}-day streak · top ${s.percentile.toFixed(0)}%`,
+    openGraph: { images: [`${SITE_URL}/api/card?user=${row.login}&theme=pixel`] },
   };
 }
 
 export default async function UserPage({ params }: Props) {
   const { user } = await params;
-  const row = await getUser(user);
+  const [row, hist] = await Promise.all([getUser(user), getUserDays(user)]);
   if (!row) notFound();
   const s = row.submission;
-  const t = s.totals;
-  const cardUrl = `${SITE_URL}/api/card?user=${row.login}`;
+  const days = hist?.days ?? [];
+  const end = row.submittedAt.slice(0, 10);
+  const win = totalsFromDays(windowDays(days, 30, end));
+  const base = `${SITE_URL}/api`;
+  const graphSvg = renderGraph(days, { username: row.login, updatedAt: row.submittedAt, end });
 
-  const stats: Array<[string, string, string]> = [
-    ['Tokens', humanTokens(t.totalTokens), 'text-gold'],
-    ['Est. cost', money(t.cost), ''],
-    ['Active days', String(t.activeDays), ''],
-    ['Messages', humanTokens(t.messageCount), ''],
-    ['Sessions', humanTokens(t.sessionCount), ''],
-    ['Rank', `#${row.rank}`, 'text-coral'],
+  const windowStats: Array<[string, string, string]> = [
+    ['30d tokens', humanTokens(win.totalTokens), 'text-gold'],
+    ['30d cost', money(win.cost), ''],
+    ['30d active', `${win.activeDays}/30`, ''],
+    ['30d messages', humanTokens(win.messageCount), ''],
+    ['30d sessions', humanTokens(win.sessionCount), ''],
+    ['Rank', row.flagged ? 'unranked' : `#${row.rank}`, 'text-coral'],
+  ];
+  const allStats: Array<[string, string]> = [
+    ['All-time tokens', humanTokens(row.allTime.tokens)],
+    ['All-time cost', money(row.allTime.cost)],
+    ['Active days', String(row.allTime.activeDays)],
+    ['Streak', `${row.streak}d`],
   ];
 
   return (
@@ -49,29 +59,58 @@ export default async function UserPage({ params }: Props) {
           <h1 className="mt-2 text-[14px] md:text-[18px]">
             <a href={`https://github.com/${row.login}`} className="hover:text-coral">@{row.login}</a>
           </h1>
-          <p className="mt-1 text-muted">{s.dateRange.start} → {s.dateRange.end} · {s.clients.join(', ')}</p>
+          <p className="mt-1 text-muted">since {days[0]?.date ?? s.dateRange.start} · {s.clients.join(', ')} · sealed {relDate(row.submittedAt)}</p>
         </div>
         <div className="ml-auto flex items-center gap-4">
           <GradeBadge grade={s.grade} size="lg" />
-          <div className="font-pixel text-[9px] leading-6 text-muted">TOP<br /><span className="text-[14px] text-fg">{s.percentile.toFixed(1)}%</span></div>
+          <div className="font-pixel text-[9px] leading-6 text-muted">TOP<br /><span className="text-[14px] text-fg">{s.percentile.toFixed(1)}%</span><br />30-DAY</div>
         </div>
       </div>
 
-      <div className="mt-10 grid gap-10 md:grid-cols-[490px_1fr]">
+      {row.flagged && (
+        <div className="reveal in px-panel mt-6 p-5">
+          <p className="font-pixel text-[10px] text-coral">⚠ UNVERIFIED</p>
+          <p className="mt-2 text-muted">
+            This profile is shown but not ranked: the latest submission tripped a plausibility check. Re-running{' '}
+            <code className="text-fg">tokseal submit</code> from the real logs clears it.
+          </p>
+          <ul className="mt-2 list-disc pl-6 text-muted">{row.flagReasons.map((f) => <li key={f}>{f}</li>)}</ul>
+        </div>
+      )}
+
+      {/* Contribution graph */}
+      <section className="reveal in mt-10">
+        <p className="font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />AI contributions</p>
+        <div className="px-panel mt-4 overflow-x-auto p-2">
+          <div className="min-w-[700px] [&>svg]:h-auto [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: graphSvg }} />
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-4">
+          {allStats.map(([k, v]) => (
+            <div key={k} className="px-panel px-4 py-3">
+              <dt className="font-pixel text-[8px] uppercase tracking-wider text-muted">{k}</dt>
+              <dd className="mt-2 font-pixel text-[14px]">{v}</dd>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-12 grid gap-10 md:grid-cols-[490px_1fr]">
         <div className="reveal in">
-          <div className="px-panel relative overflow-hidden p-2 scanlines">
+          <p className="font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />Card</p>
+          <div className="px-panel relative mt-4 overflow-hidden p-2 scanlines">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/api/card?user=${row.login}&theme=pixel`} alt={`${row.login}'s tokseal card`} width={470} height={195} className="h-auto w-full" />
           </div>
           <div className="mt-6 space-y-4">
-            <CopyBlock label="Markdown · pixel" text={`![tokseal](${cardUrl}&theme=pixel)`} />
-            <CopyBlock label="Markdown · dark" text={`![tokseal](${cardUrl}&theme=dark)`} />
-            <CopyBlock label="Markdown · light" text={`![tokseal](${cardUrl}&theme=light)`} />
+            <CopyBlock label="README · graph + card" text={`![tokseal graph](${base}/graph?user=${row.login})\n![tokseal](${base}/card?user=${row.login}&theme=pixel)`} />
+            <CopyBlock label="Graph only" text={`![tokseal graph](${base}/graph?user=${row.login})`} />
+            <CopyBlock label="Card · dark / light" text={`![tokseal](${base}/card?user=${row.login}&theme=dark)`} />
           </div>
         </div>
         <div className="reveal in" data-delay="1">
-          <dl className="grid grid-cols-2 gap-4 tnum sm:grid-cols-3">
-            {stats.map(([k, v, c]) => (
+          <p className="font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />Last 30 days (grade window)</p>
+          <dl className="mt-4 grid grid-cols-2 gap-4 tnum sm:grid-cols-3">
+            {windowStats.map(([k, v, c]) => (
               <div key={k} className="px-panel px-4 py-3">
                 <dt className="font-pixel text-[8px] uppercase tracking-wider text-muted">{k}</dt>
                 <dd className={`mt-2 font-pixel text-[14px] ${c}`}>{v}</dd>
@@ -79,7 +118,7 @@ export default async function UserPage({ params }: Props) {
             ))}
           </dl>
 
-          <p className="mt-10 font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />By model</p>
+          <p className="mt-10 font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />By model (latest submit)</p>
           <div className="px-panel mt-4">
             <table className="w-full tnum text-[19px]">
               <tbody>

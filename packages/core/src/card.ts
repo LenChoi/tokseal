@@ -14,7 +14,17 @@ export type CardOptions = {
   username?: string;
   theme?: CardTheme;
   title?: string;
+  /** ISO timestamp of the last submission (pixel theme prints "UPDATED 3H AGO"). */
+  updatedAt?: string;
 };
+
+export function agoLabel(isoTs: string, now = Date.now()): string {
+  const s = Math.max(0, (now - Date.parse(isoTs)) / 1000);
+  if (s < 90) return 'JUST NOW';
+  if (s < 3600) return `${Math.round(s / 60)}M AGO`;
+  if (s < 86400) return `${Math.round(s / 3600)}H AGO`;
+  return `${Math.round(s / 86400)}D AGO`;
+}
 
 type Palette = {
   bg: string;
@@ -235,7 +245,8 @@ function renderPixelCard(report: UsageReport, g: Grade, opts: CardOptions): stri
 
   // footer
   parts.push(pixelText('◆ TOKSEAL', 24, 166, 1, PX.coral));
-  parts.push(pixelText('TOKSEAL.DEV', W - 24 - pixelTextWidth('TOKSEAL.DEV', 1), 166, 1, PX.muted));
+  const right = opts.updatedAt ? `UPDATED ${agoLabel(opts.updatedAt)}` : 'TOKSEAL.DEV';
+  parts.push(pixelText(right, W - 24 - pixelTextWidth(right, 1), 166, 1, PX.muted));
 
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}" shape-rendering="crispEdges">
 ${parts.join('\n')}

@@ -1,53 +1,69 @@
 /** Read side of the leaderboard. Falls back to demo data when Supabase is not configured. */
-import type { Submission } from '@tokseal/core';
+import type { DayBucket, Submission } from '@tokseal/core';
 import { DEMO } from './env';
 import { supabaseAdmin } from './supabase-admin';
 
 export type Profile = { login: string; name: string | null; avatar_url: string | null };
-export type LeaderboardRow = Profile & { rank: number; submission: Submission };
-
-type SubRow = {
-  user_id: string;
-  payload: Submission;
-  submitted_at: string;
-  profiles: { login: string; name: string | null; avatar_url: string | null } | null;
+export type LeaderboardRow = Profile & {
+  rank: number;
+  submission: Submission;
+  submittedAt: string;
+  allTime: { tokens: number; cost: number; messages: number; activeDays: number };
+  streak: number;
+  flagged: boolean;
+  flagReasons: string[];
 };
+
+type ViewRow = {
+  login: string; name: string | null; avatar_url: string | null; rank: number | string;
+  payload: Submission; submitted_at: string;
+  total_tokens: number | string; cost: number | string; message_count: number | string; active_days: number; streak_days: number;
+  flagged: boolean | null; flag_reasons: string[] | null;
+};
+
+function fromView(r: ViewRow): LeaderboardRow {
+  return {
+    login: r.login, name: r.name, avatar_url: r.avatar_url, rank: r.rank == null ? 0 : Number(r.rank),
+    submission: r.payload, submittedAt: r.submitted_at,
+    allTime: { tokens: Number(r.total_tokens), cost: Number(r.cost), messages: Number(r.message_count), activeDays: r.active_days },
+    streak: r.streak_days ?? 0,
+    flagged: !!r.flagged,
+    flagReasons: r.flag_reasons ?? [],
+  };
+}
+
+const COLS = 'login, name, avatar_url, rank, payload, submitted_at, total_tokens, cost, message_count, active_days, streak_days, flagged, flag_reasons';
 
 export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
   if (DEMO) return (await import('./demo')).demoLeaderboard().slice(0, limit);
-  const sb = supabaseAdmin();
-  const { data, error } = await sb
-    .from('submissions')
-    .select('user_id, payload, submitted_at, profiles!inner(login, name, avatar_url)')
-    .order('percentile', { ascending: true })
-    .order('total_tokens', { ascending: false })
-    .limit(limit);
+  const { data, error } = await supabaseAdmin().from('leaderboard').select(COLS).order('flagged', { ascending: true }).order('rank', { ascending: true, nullsFirst: false }).limit(limit);
   if (error) throw error;
-  return ((data ?? []) as unknown as SubRow[]).map((r, i) => ({
-    login: r.profiles!.login,
-    name: r.profiles!.name,
-    avatar_url: r.profiles!.avatar_url,
-    rank: i + 1,
-    submission: r.payload,
-  }));
+  return ((data ?? []) as unknown as ViewRow[]).map(fromView);
 }
 
 export async function getUser(login: string): Promise<LeaderboardRow | null> {
   if (DEMO) return (await import('./demo')).demoUser(login);
-  const { data, error } = await supabaseAdmin()
-    .from('leaderboard')
-    .select('login, name, avatar_url, rank, payload')
-    .ilike('login', login.replace(/[%_]/g, ''))
-    .maybeSingle();
+  const { data, error } = await supabaseAdmin().from('leaderboard').select(COLS).ilike('login', login.replace(/[%_]/g, '')).maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  return {
-    login: data.login as string,
-    name: (data.name as string | null) ?? null,
-    avatar_url: (data.avatar_url as string | null) ?? null,
-    rank: Number(data.rank),
-    submission: data.payload as Submission,
-  };
+  return data ? fromView(data as unknown as ViewRow) : null;
+}
+
+/** Full per-day history for a user (for the contribution graph). */
+export async function getUserDays(login: string): Promise<{ login: string; days: DayBucket[]; updatedAt: string | null } | null> {
+  if (DEMO) {
+    const u = (await import('./demo')).demoUser(login);
+    return u ? { login: u.login, days: u.submission.days.map((d) => ({ ...d })), updatedAt: u.submittedAt } : null;
+  }
+  const sb = supabaseAdmin();
+  const { data: prof } = await sb.from('profiles').select('id, login').ilike('login', login.replace(/[%_]/g, '')).maybeSingle();
+  if (!prof) return null;
+  const { data: rows } = await sb.from('usage_days').select('*').eq('user_id', prof.id).order('date');
+  const { data: sub } = await sb.from('submissions').select('submitted_at').eq('user_id', prof.id).maybeSingle();
+  const days: DayBucket[] = (rows ?? []).map((r: Record<string, unknown>) => ({
+    date: String(r.date), input: Number(r.input), output: Number(r.output), cacheRead: Number(r.cache_read), cacheWrite: Number(r.cache_write),
+    reasoning: Number(r.reasoning), cost: Number(r.cost), messageCount: Number(r.message_count), sessionCount: Number(r.session_count),
+  }));
+  return { login: prof.login as string, days, updatedAt: (sub?.submitted_at as string) ?? null };
 }
 
 export async function getSubmissionCount(): Promise<number> {

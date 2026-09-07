@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export type Config = { server?: string; token?: string; login?: string };
+export type Config = { server?: string; token?: string; login?: string; lastSubmitAt?: string };
 
 const dir = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'tokseal');
 const file = join(dir, 'config.json');
