@@ -1,35 +1,49 @@
 {
   "name": "tokseal",
-  "version": "0.1.0",
-  "description": "Seal your AI coding usage into a GitHub badge. Local-first token stats, a grade, and a shareable card — your data never leaves your machine.",
+  "version": "0.2.0",
+  "description": "Seal your AI coding usage into a GitHub badge. Local-first token stats, a grade, and a shareable card \u2014 your data never leaves your machine.",
   "type": "module",
   "bin": {
     "tokseal": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build && cp ../../README.md ./README.md"
   },
   "keywords": [
     "ai",
     "claude",
     "claude-code",
+    "codex",
+    "gemini",
     "tokens",
     "usage",
     "badge",
     "github-readme",
     "cli",
     "llm",
-    "cost"
+    "cost",
+    "contribution-graph"
   ],
   "dependencies": {
-    "@tokseal/core": "0.1.0",
+    "@tokseal/core": "^0.2.0",
     "picocolors": "^1.1.1"
   },
   "license": "MIT",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LenChoi/tokseal.git"
+  },
+  "homepage": "https://github.com/LenChoi/tokseal#readme",
+  "bugs": {
+    "url": "https://github.com/LenChoi/tokseal/issues"
+  },
+  "author": "Choi Minho <https://github.com/LenChoi>"
 }
