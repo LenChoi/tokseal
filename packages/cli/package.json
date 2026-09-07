@@ -1,6 +1,6 @@
 {
   "name": "tokseal",
-  "version": "0.2.2",
+  "version": "0.2.1",
   "description": "Seal your AI coding usage into a GitHub badge. Local-first token stats, a grade, and a shareable card \u2014 your data never leaves your machine.",
   "type": "module",
   "bin": {
