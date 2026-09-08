@@ -63,12 +63,19 @@ Badge options: `?style=flat`, `?metrics=grade,tokens,streak,days`, `?label=…`.
 ## Quick start
 
 ```bash
-npx tokseal            # your usage summary and grade
+npx tokseal            # your usage summary and grade (local only)
+npx tokseal login      # opt in: GitHub sign-in → auto-submit hook → first submit, in one go
+```
+
+That is the whole onboarding. After `login`, every Claude Code session end re-submits
+aggregate counts, and your badge, card, and graph stay fresh. Other commands:
+
+```bash
 npx tokseal card       # write an SVG card (tokseal.svg)
 npx tokseal --json     # full report as JSON
-npx tokseal login      # opt in: link this machine to your GitHub account (+ auto-submit hook)
-npx tokseal submit     # upload per-day aggregate counts → tokseal.vercel.app/u/<you>
-npx tokseal hook       # (re)install the Claude Code SessionEnd hook; `hook remove` to undo
+npx tokseal submit     # re-upload now (the hook normally does this)
+npx tokseal hook       # (re)install the SessionEnd hook; `hook remove` to undo
+npx tokseal logout     # forget the token and remove the hook
 ```
 
 After `submit`, drop the live card in your README:
@@ -141,7 +148,7 @@ source; until then the badge says what it is.
   dependency-light TypeScript.
 - Individual messages and code are **never read for content** — only token
   counts, model ids, and timestamps.
-- The leaderboard is strictly opt-in via `tokseal login` + `tokseal submit`.
+- The leaderboard is strictly opt-in via `tokseal login`.
   The payload is exactly what `@tokseal/core`'s `toSubmission` produces: totals,
   per-model totals, grade, and a date range. No message content, no file
   paths, no project names, no session ids. It is validated server-side by the

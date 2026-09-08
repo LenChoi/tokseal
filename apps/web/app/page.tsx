@@ -162,7 +162,7 @@ export default async function Home() {
             {[
               ['✓', 'Parsing runs entirely on your machine, in a few hundred lines of dependency-light TypeScript.'],
               ['✓', 'Individual messages and code are never read for content.'],
-              ['✓', 'The leaderboard is opt-in: tokseal login + tokseal submit.'],
+              ['✓', 'The leaderboard is opt-in: one command, tokseal login.'],
               ['✓', 'The upload is exactly toSubmission(): totals, per-model totals, grade, date range. Read it in the repo.'],
               ['✗', 'No message content. No file paths. No project names. No session ids.'],
               ['!', 'Self-reported, like commit graphs. The server reprices from tokens, rejects impossible days, and marks implausible jumps UNVERIFIED.'],
@@ -171,7 +171,7 @@ export default async function Home() {
             ))}
           </ul>
           <div className="space-y-4">
-            <CopyBlock label="Opt in (totals only)" text="npx tokseal login && npx tokseal submit" />
+            <CopyBlock label="Opt in (totals only)" text="npx tokseal login" />
             <CopyBlock label="README badge" text="[![tokseal](https://tokseal.vercel.app/badge/YOU)](https://tokseal.vercel.app/u/YOU)" />
             <CopyBlock label="README card + graph" text={"![tokseal graph](https://tokseal.vercel.app/api/graph?user=YOU)\n![tokseal](https://tokseal.vercel.app/api/card?user=YOU&theme=pixel)"} />
           </div>

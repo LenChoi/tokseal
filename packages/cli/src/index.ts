@@ -31,7 +31,7 @@ function parseArgs(argv: string[]): Args {
   return { _, flags };
 }
 
-const VERSION = '0.2.1';
+const VERSION = '0.2.2';
 
 const money = (n: number) => (n >= 1000 ? '$' + (n / 1000).toFixed(1) + 'K' : '$' + n.toFixed(0));
 
@@ -54,8 +54,8 @@ ${pc.bold('tokseal')} — seal your AI coding usage into a badge
 ${pc.bold('Usage')}
   tokseal                 Show your usage summary and grade
   tokseal card            Write an SVG card (default: tokseal.svg)
-  tokseal login           Link this machine to your GitHub account (opt-in)
-  tokseal submit          Upload aggregate totals to the leaderboard
+  tokseal login           Opt in: link GitHub, install the auto-submit hook, submit
+  tokseal submit          Re-upload aggregate totals (the hook does this for you)
   tokseal logout          Forget the stored token and remove the hook
   tokseal hook            Install the Claude Code SessionEnd auto-submit hook
   tokseal hook remove     Remove it
@@ -127,7 +127,8 @@ async function login(flags: Args['flags']) {
     console.log(pc.green(`  ✓ linked as @${gh}`) + pc.dim(`  (${configPath()})`));
     console.log();
     await offerHook(flags);
-    console.log(pc.dim('  next: tokseal submit'));
+    // One command does it all: link, hook, first submit.
+    await submit(flags);
     return;
   }
   throw new Error('login timed out — run tokseal login again');
@@ -197,9 +198,10 @@ async function submit(flags: Args['flags']) {
   log(`  graph    ${pc.cyan(r.graphUrl)}`);
   log(`  card     ${pc.cyan(r.cardUrl)}`);
   log();
-  log(pc.dim('  Add to your README:'));
-  log(`  ![tokseal graph](${r.graphUrl})`);
+  log(pc.dim('  Add to your README (badge · card · graph):'));
+  log(`  [![tokseal](${server}/badge/${cfg.login})](${r.profileUrl})`);
   log(`  ![tokseal](${r.cardUrl})`);
+  log(`  ![tokseal graph](${r.graphUrl})`);
   log();
 }
 
@@ -277,8 +279,9 @@ async function main() {
     console.log(`    ${pc.dim(r.client.padEnd(7))} ${r.model.padEnd(22)} ${pc.bold(bar)}  ${pc.dim(String(r.messageCount) + ' msgs')}${flag}`);
   }
   console.log();
-  console.log(pc.dim('  tokseal card    → make a shareable SVG for your GitHub profile'));
-  console.log(pc.dim('  tokseal submit  → opt in to the leaderboard (totals only)'));
+  const cfg = readConfig();
+  if (cfg.token) console.log(pc.dim(`  linked as @${cfg.login} · profile ${serverFrom(flags)}/u/${cfg.login}`));
+  else console.log(pc.dim('  npx tokseal login  → GitHub badge + leaderboard in one step (totals only, opt-in)'));
   console.log();
 }
 

@@ -17,7 +17,7 @@ function fallback(msg: string, theme: 'dark' | 'light' | 'pixel') {
   <rect x="0.5" y="0.5" width="469" height="194" rx="10" fill="${bg}" stroke="${border}"/>
   <text x="32" y="40" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="17" font-weight="700" fill="#f0703c">tokseal</text>
   <text x="32" y="100" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" fill="${fg}">${msg}</text>
-  <text x="32" y="124" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#8b949e">npx tokseal login &amp;&amp; npx tokseal submit</text>
+  <text x="32" y="124" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#8b949e">npx tokseal login</text>
 </svg>`;
 }
 
