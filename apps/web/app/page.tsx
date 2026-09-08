@@ -44,8 +44,9 @@ export default async function Home() {
               <Link href="/leaderboard" className="px-btn">▶ HI-SCORES</Link>
               <a href="https://github.com/LenChoi/tokseal" className="px-btn px-btn--ghost">★ STAR ON GITHUB</a>
             </div>
-            <div className="mt-8 max-w-md">
-              <CopyBlock text="npx tokseal" label="Insert coin" />
+            <div className="mt-8 max-w-md space-y-3">
+              <CopyBlock text="npx tokseal" label="1 · insert coin (local only)" />
+              <CopyBlock text="npx tokseal login" label="2 · badge + hi-scores, one step (totals only)" />
             </div>
           </div>
 
