@@ -31,3 +31,4 @@ export {
   type SubmissionDay,
 } from './submission.js';
 export { reprice, sanityCheck, anomalyCheck, type SanityResult, type PriorHistory } from './sanity.js';
+export { renderBadge, type BadgeOptions } from './badge.js';

@@ -6,7 +6,7 @@ import { SITE_URL } from '@/lib/env';
 import { humanTokens, money, relDate } from '@/lib/format';
 import { GradeBadge } from '@/components/GradeBadge';
 import { Avatar } from '@/components/Avatar';
-import { CopyBlock } from '@/components/CopyBlock';
+import { Embed } from '@/components/Embed';
 
 export const revalidate = 300;
 
@@ -32,7 +32,6 @@ export default async function UserPage({ params }: Props) {
   const days = hist?.days ?? [];
   const end = row.submittedAt.slice(0, 10);
   const win = totalsFromDays(windowDays(days, 30, end));
-  const base = `${SITE_URL}/api`;
   const graphSvg = renderGraph(days, { username: row.login, updatedAt: row.submittedAt, end });
 
   const windowStats: Array<[string, string, string]> = [
@@ -78,6 +77,12 @@ export default async function UserPage({ params }: Props) {
         </div>
       )}
 
+      {/* Embed */}
+      <section className="reveal in mt-10">
+        <p className="font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />Embed in your README</p>
+        <div className="mt-4"><Embed login={row.login} base={SITE_URL} /></div>
+      </section>
+
       {/* Contribution graph */}
       <section className="reveal in mt-10">
         <p className="font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />AI contributions</p>
@@ -101,11 +106,7 @@ export default async function UserPage({ params }: Props) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/api/card?user=${row.login}&theme=pixel`} alt={`${row.login}'s tokseal card`} width={470} height={195} className="h-auto w-full" />
           </div>
-          <div className="mt-6 space-y-4">
-            <CopyBlock label="README · graph + card" text={`![tokseal graph](${base}/graph?user=${row.login})\n![tokseal](${base}/card?user=${row.login}&theme=pixel)`} />
-            <CopyBlock label="Graph only" text={`![tokseal graph](${base}/graph?user=${row.login})`} />
-            <CopyBlock label="Card · dark / light" text={`![tokseal](${base}/card?user=${row.login}&theme=dark)`} />
-          </div>
+          <p className="mt-4 text-muted">Themes: <code className="text-fg">?theme=pixel|dark|light</code>. Copy snippets from the Embed panel above.</p>
         </div>
         <div className="reveal in" data-delay="1">
           <p className="font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />Last 30 days (grade window)</p>

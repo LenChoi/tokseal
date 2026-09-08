@@ -16,6 +16,7 @@ Everything respects `prefers-reduced-motion`.
 | `/api/card?user=&theme=pixel\|dark\|light` | SVG card (same `renderCard` as the CLI; `pixel` default), 30-min cache |
 | `/link?code=` | Browser side of `tokseal login` (GitHub sign-in → approve device) |
 | `/api/device/start` · `/api/device/poll` · `/api/device/approve` | Device-link flow |
+| `/badge/<user>` · `/api/badge?user=` | Compact pixel/flat badge (`?style`, `?metrics`, `?label`), 5-min cache |
 | `/api/graph?user=&weeks=52&theme=` | AI contribution graph SVG (tokens per day), 5-min cache |
 | `/api/submit` | `Bearer tsk_…` + Submission v2 → merge `usage_days`, recompute all-time, 30-day grade, streak |
 

@@ -10,7 +10,12 @@ your GitHub profile — proof that you build with AI, at a glance.
 [![tokseal graph](https://tokseal.vercel.app/api/graph?user=LenChoi)](https://tokseal.vercel.app/u/LenChoi)
 [![tokseal card](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel)](https://tokseal.vercel.app/u/LenChoi)
 
+[![tokseal badge](https://tokseal.vercel.app/badge/LenChoi)](https://tokseal.vercel.app/u/LenChoi)
+[![tokseal streak](https://tokseal.vercel.app/badge/LenChoi?metrics=grade,streak)](https://tokseal.vercel.app/u/LenChoi)
+
 Live from [tokseal.vercel.app](https://tokseal.vercel.app), updated a few minutes after every Claude Code session ends.
+Three embeddables: a **badge** (`/badge/<user>`), a **card** (`/api/card`), and a **contribution graph** (`/api/graph`).
+Every profile page has an Embed panel with Markdown and HTML snippets.
 
 The card's text is drawn from a built-in 5×7 bitmap font, so it looks
 pixel-perfect anywhere an SVG renders, including GitHub READMEs, which strip
@@ -48,9 +53,12 @@ token graph for your README, next to the classic contribution grass.
   hi-score board.
 
 ```md
+[![tokseal](https://tokseal.vercel.app/badge/LenChoi)](https://tokseal.vercel.app/u/LenChoi)
 ![tokseal graph](https://tokseal.vercel.app/api/graph?user=LenChoi)
 ![tokseal](https://tokseal.vercel.app/api/card?user=LenChoi&theme=pixel)
 ```
+
+Badge options: `?style=flat`, `?metrics=grade,tokens,streak,days`, `?label=…`.
 
 ## Quick start
 

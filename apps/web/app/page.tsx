@@ -172,7 +172,8 @@ export default async function Home() {
           </ul>
           <div className="space-y-4">
             <CopyBlock label="Opt in (totals only)" text="npx tokseal login && npx tokseal submit" />
-            <CopyBlock label="README" text={"![tokseal graph](https://tokseal.vercel.app/api/graph?user=YOU)\n![tokseal](https://tokseal.vercel.app/api/card?user=YOU&theme=pixel)"} />
+            <CopyBlock label="README badge" text="[![tokseal](https://tokseal.vercel.app/badge/YOU)](https://tokseal.vercel.app/u/YOU)" />
+            <CopyBlock label="README card + graph" text={"![tokseal graph](https://tokseal.vercel.app/api/graph?user=YOU)\n![tokseal](https://tokseal.vercel.app/api/card?user=YOU&theme=pixel)"} />
           </div>
         </div>
       </section>
