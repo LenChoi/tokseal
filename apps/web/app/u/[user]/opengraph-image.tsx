@@ -24,10 +24,10 @@ export default async function Image({ params }: { params: Promise<{ user: string
   const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="${bg}"/><rect x="0" y="0" width="1200" height="8" fill="#f0703c"/><rect x="0" y="622" width="1200" height="8" fill="#3b2a60"/></svg>`;
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: bg, gap: 24 }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: bg, gap: 20, padding: 16 }}>
         <img src={dataUri(badgeSvg)} width={1200} height={630} style={{ position: 'absolute', top: 0, left: 0 }} />
-        <img src={dataUri(graph)} width={1120} height={Math.round(1120 * (172 / 610))} />
-        <img src={dataUri(card)} width={800} height={Math.round(800 * (195 / 470))} />
+        <img src={dataUri(graph)} width={1000} height={Math.round(1000 * (172 / 610))} />
+        <img src={dataUri(card)} width={700} height={Math.round(700 * (195 / 470))} />
       </div>
     ),
     size,
