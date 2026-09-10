@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `@${row.login} · grade ${s.grade}`,
     description: `${humanTokens(row.allTime.tokens)} tokens all-time · ${row.streak}-day streak · top ${s.percentile.toFixed(0)}%`,
-    openGraph: { images: [`${SITE_URL}/api/card?user=${row.login}&theme=pixel`] },
+    twitter: { card: 'summary_large_image' },
   };
 }
 
