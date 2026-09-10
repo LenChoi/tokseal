@@ -31,7 +31,7 @@ function parseArgs(argv: string[]): Args {
   return { _, flags };
 }
 
-const VERSION = '0.2.3';
+const VERSION = '0.2.4';
 
 const money = (n: number) => (n >= 1000 ? '$' + (n / 1000).toFixed(1) + 'K' : '$' + n.toFixed(0));
 
