@@ -7,7 +7,10 @@
 
 import { writeFileSync } from 'node:fs';
 import pc from 'picocolors';
-import { parseAll, aggregate, grade, renderCard, humanTokens, toSubmission, CLIENTS, importExport, listImports } from '@tokseal/core';
+import { parseAll, aggregate, grade, renderCard, humanTokens, toSubmission, CLIENTS, importExport, listImports, setPriceOverrides, PRICE_COUNT } from '@tokseal/core';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { createInterface } from 'node:readline/promises';
 import { DEFAULT_SERVER, configPath, readConfig, writeConfig } from './config.js';
 import { hookInstalled, installHook, uninstallHook, settingsPath } from './hook.js';
@@ -81,6 +84,10 @@ ${CLIENTS.map((c) => `  ${c.id.padEnd(8)} ${c.name.padEnd(12)} ${pc.dim(c.locati
 Estimated sources have no usage block in their logs, so tokens are counted from
 text length. They are shown with "~" and never affect your grade or rank.
 
+${pc.bold('Pricing')}  ${PRICE_COUNT} models from LiteLLM, synced weekly. Override or add models in
+  ~/.config/tokseal/pricing.json  →  { "my-model": { "input": 1, "output": 5, "cacheRead": 0.1, "cacheWrite": 0 } }
+  (USD per million tokens). Unknown models count tokens at $0.
+
 Nothing leaves your machine unless you run 'tokseal submit', and then only
 per-day aggregate counts, never content.
 `);
@@ -88,7 +95,14 @@ per-day aggregate counts, never content.
 
 const clientsFrom = (flags: Args['flags']) => (typeof flags.client === 'string' ? flags.client.split(',').map((x) => x.trim()).filter(Boolean) : undefined);
 
+function loadPriceOverrides() {
+  const p = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'tokseal', 'pricing.json');
+  if (!existsSync(p)) return;
+  try { setPriceOverrides(JSON.parse(readFileSync(p, 'utf8'))); } catch { console.error(pc.yellow(`  ! ignoring invalid ${p}`)); }
+}
+
 async function collectReport(flags: Args['flags']) {
+  loadPriceOverrides();
   const { events, found, errors } = await parseAll(clientsFrom(flags));
   for (const [id, err] of Object.entries(errors)) console.error(pc.yellow(`  ! ${id}: ${err}`));
   return { report: aggregate(events), found };

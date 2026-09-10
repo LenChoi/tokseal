@@ -1,5 +1,5 @@
 export * from './types.js';
-export { resolvePrice, costFor, type PricePerMillion } from './pricing.js';
+export { resolvePrice, costFor, setPriceOverrides, PRICE_COUNT, type PricePerMillion } from './pricing.js';
 export { parseClaude, claudeBaseDir, type UsageEvent } from './parse-claude.js';
 export { parseCodex, codexBaseDir } from './parse-codex.js';
 export { parseGemini, parseQwen, geminiBaseDir, qwenBaseDir } from './parse-gemini.js';

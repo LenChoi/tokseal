@@ -74,3 +74,14 @@ test('estimateTokens: CJK denser than latin', () => {
   assert.equal(estimateTokens('a'.repeat(400)), 100);
   assert.equal(estimateTokens('가'.repeat(150)), 100);
 });
+
+test('pricing: LiteLLM table, provider prefix stripping, overrides win, unknown is null', async () => {
+  const { resolvePrice, setPriceOverrides, costFor } = await import('../dist/index.js');
+  assert.deepEqual(resolvePrice('gpt-5.6-sol'), { input: 4, output: 20, cacheRead: 0.4, cacheWrite: 5 });
+  assert.equal(resolvePrice('anthropic/claude-opus-5').input, 5);
+  assert.equal(resolvePrice('totally-unknown-9000'), null);
+  assert.equal(costFor('totally-unknown-9000', { input: 1e6, output: 0, cacheRead: 0, cacheWrite: 0 }).priced, false);
+  setPriceOverrides({ 'totally-unknown-9000': { input: 2, output: 4 } });
+  assert.equal(costFor('totally-unknown-9000', { input: 1e6, output: 1e6, cacheRead: 0, cacheWrite: 0 }).cost, 6);
+  setPriceOverrides({});
+});
