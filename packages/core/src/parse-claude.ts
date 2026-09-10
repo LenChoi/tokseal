@@ -27,6 +27,8 @@ export type UsageEvent = {
   cacheRead: number;
   cacheWrite: number;
   reasoning: number;
+  /** Set by estimated-only parsers. Measured sources leave it undefined. */
+  estimated?: boolean;
 };
 
 const SYNTHETIC = new Set(['<synthetic>', 'synthetic', '']);
@@ -92,15 +94,18 @@ async function parseFile(file: string, seen: Set<string>, events: UsageEvent[]) 
 }
 
 export async function parseClaude(baseDir = claudeBaseDir()): Promise<UsageEvent[]> {
-  const projects = join(baseDir, 'projects');
-  try {
-    await stat(projects);
-  } catch {
-    return [];
-  }
-  const files = await walkJsonl(projects);
+  // `transcripts/` mirrors turns that also live under `projects/`; the
+  // message-id:request-id dedupe key is shared across both, so reading them in
+  // one pass with one `seen` set collapses the overlap.
   const events: UsageEvent[] = [];
   const seen = new Set<string>();
-  for (const f of files) await parseFile(f, seen, events);
+  for (const sub of ['projects', 'transcripts']) {
+    const dir = join(baseDir, sub);
+    try { await stat(dir); } catch { continue; }
+    for (const f of await walkJsonl(dir)) {
+      if (f.endsWith('journal.jsonl')) continue; // orchestration metadata, never usage
+      await parseFile(f, seen, events);
+    }
+  }
   return events;
 }

@@ -94,7 +94,7 @@ export function sanityCheck(s: Submission): SanityResult {
     if (Math.abs(msgs - s.totals.messageCount) > Math.max(10, s.totals.messageCount * 0.02)) errors.push('totals.messageCount does not match day sum');
   }
   // Models must be consistent with totals.
-  const modelTokens = s.models.reduce((a, m) => a + m.input + m.output + m.cacheRead + m.cacheWrite + m.reasoning, 0);
+  const modelTokens = s.models.filter((m) => !m.estimated).reduce((a, m) => a + m.input + m.output + m.cacheRead + m.cacheWrite + m.reasoning, 0);
   if (s.models.length && Math.abs(modelTokens - s.totals.totalTokens) > Math.max(1000, s.totals.totalTokens * 0.02))
     errors.push('model breakdown does not match totals');
 

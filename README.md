@@ -88,17 +88,30 @@ No install, no signup, no API key. tokseal reads local session logs directly.
 
 ## Supported agents
 
-| Agent | Reads | Notes |
-| --- | --- | --- |
-| Claude Code | `~/.claude/projects/**/*.jsonl` | `message.usage` per assistant turn, deduped by message id |
-| Codex CLI | `~/.codex/sessions/**/*.jsonl` | `token_usage_record` per response, or deltas of cumulative `token_count` events in older rollouts |
-| Gemini CLI | `~/.gemini/tmp/*/chats/*.jsonl` | `tokens` block per model turn; cached tokens split out of input |
-| Qwen Code | `~/.qwen/projects/*/chats/*.jsonl` | Gemini CLI fork; accepts both `tokens` and raw `usageMetadata` shapes. Experimental |
+Measured means the log carries a real usage block from the API. Estimated means the
+log only has text, so tokens are counted from length; those show with `~` and never
+touch your grade or rank. Experimental means written from the documented log format
+but not yet verified against real logs on our machines.
 
-Every parser is a few dozen lines in [`packages/core/src`](packages/core/src) and
-written from the log formats directly. Kiro is deliberately not included: its
-session logs carry model ids but no token counts, and tokseal never estimates.
-Unknown models are counted at $0 but their tokens still count.
+| Agent | Reads | Status |
+| --- | --- | --- |
+| Claude Code | `~/.claude/projects/**/*.jsonl`, `~/.claude/transcripts/` | measured |
+| Codex CLI | `~/.codex/sessions/**/*.jsonl` | measured |
+| Gemini CLI | `~/.gemini/tmp/*/chats/*.jsonl` | measured |
+| Qwen Code | `~/.qwen/projects/*/chats/*.jsonl` | measured · experimental |
+| opencode | `~/.local/share/opencode/opencode*.db`, legacy `storage/message/` | measured · experimental |
+| GitHub Copilot CLI | `~/.copilot/otel/*.jsonl` | measured · experimental |
+| Cline · Roo Code · Kilo Code | VS Code globalStorage `tasks/*/ui_messages.json` | measured · experimental |
+| Amp | `~/.local/share/amp/threads/T-*.json` | measured · experimental |
+| Droid (Factory) | `~/.factory/sessions/*.settings.json` (+ transcript for timing) | measured · experimental |
+| Kiro CLI | `~/.kiro/sessions/cli/*.jsonl` | **estimated** (Kiro logs no token counts) |
+| claude.ai / Claude Desktop | `tokseal import <export.zip>` | **estimated** |
+| ChatGPT | `tokseal import <export.zip>` | **estimated** |
+
+Every parser is a few dozen lines in [`packages/core/src`](packages/core/src) with a
+fixture test in [`packages/core/test`](packages/core/test). If you use an experimental
+agent, `npx tokseal --client <id>` and an issue with a redacted sample line is all we
+need to promote it. Unknown models are counted at $0 but their tokens still count.
 
 ```bash
 npx tokseal --client codex,gemini   # limit to some clients
@@ -120,6 +133,18 @@ Signals are smoothed with an exponential CDF (the curve
 [github-readme-stats](https://github.com/anuraghazra/github-readme-stats) uses
 for its rank), so there are no hard cliffs. The percentile is "top X%" — lower
 is better.
+
+## Acknowledgements
+
+- [github-readme-stats](https://github.com/anuraghazra/github-readme-stats) for the
+  idea of a stats card in a README and the exponential-CDF rank curve.
+- [tokscale](https://github.com/junhoyeo/tokscale) for documenting where fifty-odd
+  agents keep their logs. tokseal's parsers are written independently from those
+  formats; the two projects differ in scope (tokseal is badge-first, local-first,
+  and labels estimated data as estimated).
+- [ccusage](https://github.com/ryoppippi/ccusage) for early Claude Code log analysis.
+- [LiteLLM](https://github.com/BerriAI/litellm) whose pricing table will back the
+  next version of `pricing.ts`.
 
 ## Trust model
 

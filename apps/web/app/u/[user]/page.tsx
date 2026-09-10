@@ -119,14 +119,22 @@ export default async function UserPage({ params }: Props) {
             ))}
           </dl>
 
+          {s.estimated && s.estimated.totalTokens > 0 && (
+            <div className="px-panel mt-6 px-4 py-3">
+              <dt className="font-pixel text-[8px] uppercase tracking-wider text-muted">Estimated · not ranked</dt>
+              <dd className="mt-2 font-pixel text-[14px] text-muted">~{humanTokens(s.estimated.totalTokens)} <span className="text-[9px]">· ~{money(s.estimated.cost)} · {s.estimated.activeDays} days</span></dd>
+              <p className="mt-1 text-muted">From sources that log text but no usage (Kiro, imports). Counted from length, shown for context only.</p>
+            </div>
+          )}
+
           <p className="mt-10 font-pixel text-[9px] uppercase tracking-wider text-muted"><i className="px-dot" />By model (latest submit)</p>
           <div className="px-panel mt-4">
             <table className="w-full tnum text-[19px]">
               <tbody>
                 {s.models.map((m) => (
                   <tr key={m.client + m.model} className="border-t-4 border-[#120b22] first:border-0">
-                    <td className="px-4 py-2 font-pixel text-[9px]">{m.model}</td>
-                    <td className="px-4 py-2 text-right text-gold">{humanTokens(m.input + m.output + m.cacheRead + m.cacheWrite + m.reasoning)}</td>
+                    <td className="px-4 py-2 font-pixel text-[9px]">{m.model}{m.estimated && <span className="ml-2 text-muted">~est</span>}</td>
+                    <td className={`px-4 py-2 text-right ${m.estimated ? 'text-muted' : 'text-gold'}`}>{m.estimated ? '~' : ''}{humanTokens(m.input + m.output + m.cacheRead + m.cacheWrite + m.reasoning)}</td>
                     <td className="px-4 py-2 text-right">{money(m.cost)}</td>
                     <td className="px-4 py-2 text-right text-muted">{humanTokens(m.messageCount)} msgs</td>
                   </tr>

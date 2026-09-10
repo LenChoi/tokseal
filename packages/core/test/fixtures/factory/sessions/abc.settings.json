@@ -1,0 +1,1 @@
+{"model": "custom:Claude-Opus-4.5-Thinking-[Anthropic]-0", "providerLock": "anthropic", "tokenUsage": {"inputTokens": 1000, "outputTokens": 100, "cacheCreationTokens": 0, "cacheReadTokens": 300, "thinkingTokens": 20}}

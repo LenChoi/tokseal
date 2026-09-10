@@ -15,6 +15,7 @@ export const SUBMISSION_VERSION = 2;
 export type SubmissionModel = {
   client: string;
   model: string;
+  estimated?: boolean;
   messageCount: number;
   cost: number;
   input: number;
@@ -45,6 +46,8 @@ export type Submission = {
   models: SubmissionModel[];
   /** Per-day buckets. The server merges these by date so history survives local log cleanup. */
   days: SubmissionDay[];
+  /** Estimated-only sources (Kiro, imports). Displayed with "~", never ranked. */
+  estimated?: UsageReport['totals'];
   clients: string[];
   dateRange: UsageReport['dateRange'];
   generatedAt: string;
@@ -59,6 +62,7 @@ export function toSubmission(report: UsageReport, g: Grade): Submission {
     models: report.rows.map((r) => ({
       client: r.client,
       model: r.model,
+      ...(r.estimated ? { estimated: true } : {}),
       messageCount: r.messageCount,
       cost: Number(r.cost.toFixed(4)),
       input: r.input,
@@ -73,6 +77,7 @@ export function toSubmission(report: UsageReport, g: Grade): Submission {
       cost: Number(d.cost.toFixed(4)), messageCount: d.messageCount, sessionCount: d.sessionCount,
     })),
     clients: [...report.clients],
+    ...(report.estimated.totalTokens > 0 ? { estimated: { ...report.estimated } } : {}),
     dateRange: { ...report.dateRange },
     generatedAt: report.generatedAt,
   };
@@ -84,11 +89,13 @@ export function daysFromSubmission(s: Submission): DayBucket[] {
 
 /** Rebuild enough of a UsageReport (no per-day buckets) to render a card. */
 export function reportFromSubmission(s: Submission): UsageReport {
-  const rows: UsageRow[] = s.models.map((m) => ({ ...m, priced: m.cost > 0 }));
+  const rows: UsageRow[] = s.models.map((m) => ({ ...m, estimated: !!m.estimated, priced: m.cost > 0 }));
+  const zeroT: UsageReport['totals'] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, totalTokens: 0, cost: 0, messageCount: 0, activeDays: 0, sessionCount: 0 };
   return {
     rows,
     days: daysFromSubmission(s),
     totals: { ...s.totals },
+    estimated: { ...zeroT, ...(s.estimated ?? {}) },
     dateRange: { ...s.dateRange },
     clients: [...s.clients],
     models: [...new Set(s.models.map((m) => m.model))].sort(),
@@ -136,6 +143,7 @@ export function validateSubmission(input: unknown): { ok: true; value: Submissio
       if (!isNum(m[k])) return { ok: false, error: `bad model.${k}` };
     models.push({
       client: m.client, model: m.model,
+      ...(m.estimated === true ? { estimated: true } : {}),
       messageCount: m.messageCount as number, cost: m.cost as number,
       input: m.input as number, output: m.output as number,
       cacheRead: m.cacheRead as number, cacheWrite: m.cacheWrite as number, reasoning: m.reasoning as number,
@@ -162,6 +170,14 @@ export function validateSubmission(input: unknown): { ok: true; value: Submissio
   if (!Array.isArray(x.clients) || !x.clients.every((c) => isStr(c, 40)) || x.clients.length > 20)
     return { ok: false, error: 'bad clients' };
 
+  let estimated: Submission['estimated'];
+  if (x.estimated !== undefined) {
+    const e = x.estimated as Record<string, unknown>;
+    if (!e || typeof e !== 'object') return { ok: false, error: 'bad estimated' };
+    for (const k of totalKeys) if (!isNum(e[k])) return { ok: false, error: `bad estimated.${k}` };
+    estimated = Object.fromEntries(totalKeys.map((k) => [k, e[k] as number])) as Submission['totals'];
+  }
+
   const dr = x.dateRange as Record<string, unknown>;
   const isDate = (v: unknown) => v === null || (isStr(v, 10) && /^\d{4}-\d{2}-\d{2}$/.test(v));
   if (!dr || !isDate(dr.start) || !isDate(dr.end)) return { ok: false, error: 'bad dateRange' };
@@ -176,6 +192,7 @@ export function validateSubmission(input: unknown): { ok: true; value: Submissio
       models,
       days,
       clients: x.clients as string[],
+      ...(estimated ? { estimated } : {}),
       dateRange: { start: dr.start as string | null, end: dr.end as string | null },
       generatedAt: isStr(x.generatedAt, 40) ? x.generatedAt : new Date().toISOString(),
     },

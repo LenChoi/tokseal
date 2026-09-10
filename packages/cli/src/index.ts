@@ -7,7 +7,7 @@
 
 import { writeFileSync } from 'node:fs';
 import pc from 'picocolors';
-import { parseAll, aggregate, grade, renderCard, humanTokens, toSubmission, CLIENTS } from '@tokseal/core';
+import { parseAll, aggregate, grade, renderCard, humanTokens, toSubmission, CLIENTS, importExport, listImports } from '@tokseal/core';
 import { createInterface } from 'node:readline/promises';
 import { DEFAULT_SERVER, configPath, readConfig, writeConfig } from './config.js';
 import { hookInstalled, installHook, uninstallHook, settingsPath } from './hook.js';
@@ -59,6 +59,8 @@ ${pc.bold('Usage')}
   tokseal logout          Forget the stored token and remove the hook
   tokseal hook            Install the Claude Code SessionEnd auto-submit hook
   tokseal hook remove     Remove it
+  tokseal import <file>   Add a claude.ai or ChatGPT data export (zip/json) as estimated usage
+  tokseal import list     Show stored imports
   tokseal --json          Print the full report as JSON
 
 ${pc.bold('Options')}
@@ -74,7 +76,10 @@ ${pc.bold('Options')}
   --help                  This help
 
 ${pc.bold('Clients')} (read locally, never uploaded as content)
-${CLIENTS.map((c) => `  ${c.id.padEnd(8)} ${c.name.padEnd(12)} ${pc.dim(c.location())}${c.experimental ? pc.yellow('  experimental') : ''}`).join('\n')}
+${CLIENTS.map((c) => `  ${c.id.padEnd(8)} ${c.name.padEnd(12)} ${pc.dim(c.location())}${c.experimental ? pc.yellow('  experimental') : ''}${c.estimated ? pc.magenta('  estimated (~)') : ''}`).join('\n')}
+
+Estimated sources have no usage block in their logs, so tokens are counted from
+text length. They are shown with "~" and never affect your grade or rank.
 
 Nothing leaves your machine unless you run 'tokseal submit', and then only
 per-day aggregate counts, never content.
@@ -219,6 +224,19 @@ async function main() {
     console.log(pc.green('✓ logged out'));
     return;
   }
+  if (cmd === 'import') {
+    const target = _[1];
+    if (!target || target === 'list') {
+      const rows = listImports();
+      if (!rows.length) console.log(pc.dim('  no imports yet. Usage: tokseal import <claude-export.zip | conversations.json>'));
+      for (const r of rows) console.log(`  ${r.source.padEnd(11)} ${r.file.padEnd(40)} ${pc.dim(`${r.events} turns · ${r.importedAt.slice(0, 10)}`)}`);
+      return;
+    }
+    const r = importExport(target);
+    console.log(pc.green(`  ✓ imported ${r.events} assistant turns from ${r.source}`) + pc.dim(`  (${r.stored})`));
+    console.log(pc.dim('  Counted as estimated (~). Message text was not stored.'));
+    return;
+  }
   if (cmd === 'hook') {
     if (_[1] === 'remove') { const p = uninstallHook(); console.log(pc.green('✓ hook removed') + pc.dim(`  (${p})`)); return; }
     if (hookInstalled()) { console.log(pc.dim(`hook already installed (${settingsPath()})`)); return; }
@@ -262,21 +280,26 @@ async function main() {
   console.log(`  ${pc.dim('Tokens')}     ${pc.bold(humanTokens(t.totalTokens))}`);
   console.log(`  ${pc.dim('Est. cost')}  ${pc.bold(money(t.cost))}`);
   console.log(`  ${pc.dim('Active')}     ${pc.bold(String(t.activeDays))} days   ${pc.dim('Sessions')} ${pc.bold(String(t.sessionCount))}   ${pc.dim('Messages')} ${pc.bold(humanTokens(t.messageCount))}`);
+  if (report.estimated.totalTokens > 0) {
+    console.log(`  ${pc.dim('Estimated')}  ${pc.bold('~' + humanTokens(report.estimated.totalTokens))} ${pc.dim(`(~${money(report.estimated.cost)}, text-length estimate, not ranked)`)}`);
+  }
   console.log();
   console.log(`  ${pc.dim('By client')}`);
   for (const id of found) {
     const rows = report.rows.filter((r) => r.client === id);
     const tok = rows.reduce((a, r) => a + r.input + r.output + r.cacheRead + r.cacheWrite + r.reasoning, 0);
     const cost = rows.reduce((a, r) => a + r.cost, 0);
-    const name = CLIENTS.find((c) => c.id === id)?.name ?? id;
-    console.log(`    ${name.padEnd(24)} ${pc.bold(money(cost).padStart(7))}  ${pc.dim(humanTokens(tok) + ' tokens')}`);
+    const def = CLIENTS.find((c) => c.id === id);
+    const name = def?.name ?? id;
+    const est = rows.some((r) => r.estimated);
+    console.log(`    ${name.padEnd(24)} ${pc.bold((est ? '~' : '') + money(cost).padStart(est ? 6 : 7))}  ${pc.dim((est ? '~' : '') + humanTokens(tok) + ' tokens')}${est ? pc.magenta(' est.') : ''}`);
   }
   console.log();
   console.log(`  ${pc.dim('By model')}`);
   for (const r of report.rows.slice(0, 10)) {
     const bar = money(r.cost).padStart(7);
     const flag = r.priced ? '' : pc.yellow(' (unpriced)');
-    console.log(`    ${pc.dim(r.client.padEnd(7))} ${r.model.padEnd(22)} ${pc.bold(bar)}  ${pc.dim(String(r.messageCount) + ' msgs')}${flag}`);
+    console.log(`    ${pc.dim(r.client.padEnd(7))} ${r.model.padEnd(22)} ${pc.bold((r.estimated ? '~' : '') + bar)}  ${pc.dim(String(r.messageCount) + ' msgs')}${flag}`);
   }
   console.log();
   const cfg = readConfig();

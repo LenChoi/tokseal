@@ -36,7 +36,7 @@ export default async function Home() {
               USAGE.
             </h1>
             <p className="mt-8 max-w-xl text-[22px] text-muted">
-              tokseal reads your local Claude Code, Codex, and Gemini CLI sessions, grades how hard you lean on AI
+              tokseal reads your local Claude Code, Codex, Gemini CLI, opencode, Copilot CLI and more, grades how hard you lean on AI
               <span className="text-gold"> (S → C)</span>, and mints a card for your GitHub profile.
               Parsing happens on <span className="text-mint">your machine</span>. Nothing is uploaded unless you opt in.
             </p>
@@ -73,7 +73,7 @@ export default async function Home() {
         <div className="-mx-5 h-6 bg-[#120b22]" />
       </section>
 
-      <div className="-mx-5"><Marquee items={['local-first', 'no api key', 'no signup', 'grade S → C', 'svg card for github', 'opt-in leaderboard', 'mit licensed', 'claude code · codex cli · gemini cli · qwen code']} /></div>
+      <div className="-mx-5"><Marquee items={['local-first', 'no api key', 'no signup', 'grade S → C', 'svg card for github', 'opt-in leaderboard', 'mit licensed', 'claude code · codex cli · gemini cli · opencode · copilot cli · cline · amp · droid · kiro (~)']} /></div>
 
       {/* ---------------- STAGE 1: TERMINAL + CARD ---------------- */}
       <section className="py-24">
@@ -136,7 +136,7 @@ export default async function Home() {
         <SectionTitle kicker="STAGE 2" title="HOW THE GRADE WORKS" />
         <div className="mt-12 grid gap-8 md:grid-cols-3">
           {[
-            ['01', 'PARSE', 'Reads token counts, model ids and timestamps from Claude Code, Codex CLI, Gemini CLI and Qwen Code logs. Never message content, never file paths.'],
+            ['01', 'PARSE', 'Reads token counts, model ids and timestamps from 12 agents\u2019 local logs. Sources without usage blocks are estimated from text and marked ~. Never message content, never file paths.'],
             ['02', 'GRADE', 'Four signals: tokens, active days, messages, sessions. Smoothed with an exponential CDF, the curve github-readme-stats uses for rank. No cliffs, no single-metric farming.'],
             ['03', 'SEAL', 'Renders a static SVG card + contribution graph. tokseal login installs a Claude Code SessionEnd hook that re-submits aggregate totals after every session.'],
           ].map(([n, t, d], i) => (
