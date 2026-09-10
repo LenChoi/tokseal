@@ -25,5 +25,11 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: cd packages/core && npm test
+      - name: Skip if this version is already on npm
+        id: check
+        run: |
+          V=$(node -p "require('./packages/cli/package.json').version")
+          if npm view "tokseal@$V" version >/dev/null 2>&1; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "tokseal@$V already published"; fi
       - name: Publish tokseal
+        if: steps.check.outputs.skip != 'true'
         run: npm publish -w tokseal --provenance --access public
