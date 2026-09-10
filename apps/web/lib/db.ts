@@ -71,3 +71,23 @@ export async function getSubmissionCount(): Promise<number> {
   const { count } = await supabaseAdmin().from('submissions').select('*', { count: 'exact', head: true });
   return count ?? 0;
 }
+
+export type SeasonRow = { login: string; name: string | null; avatar_url: string | null; rank: number; tokens: number; cost: number; messages: number; activeDays: number; sessions: number };
+
+/** Monthly season board (YYYY-MM, UTC). */
+export async function getSeason(month: string): Promise<SeasonRow[]> {
+  if (DEMO) {
+    const rows = (await import('./demo')).demoLeaderboard();
+    return rows.map((r) => {
+      const days = r.submission.days.filter((d) => d.date.startsWith(month));
+      const tokens = days.reduce((a, d) => a + d.input + d.output + d.cacheRead + d.cacheWrite + d.reasoning, 0);
+      return { login: r.login, name: r.name, avatar_url: r.avatar_url, rank: 0, tokens, cost: days.reduce((a, d) => a + d.cost, 0), messages: days.reduce((a, d) => a + d.messageCount, 0), activeDays: days.filter((d) => d.messageCount > 0).length, sessions: days.reduce((a, d) => a + d.sessionCount, 0) };
+    }).filter((r) => r.tokens > 0).sort((a, b) => b.tokens - a.tokens).map((r, i) => ({ ...r, rank: i + 1 }));
+  }
+  const { data, error } = await supabaseAdmin().rpc('season_leaderboard', { month });
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    login: String(r.login), name: (r.name as string | null) ?? null, avatar_url: (r.avatar_url as string | null) ?? null, rank: Number(r.rank),
+    tokens: Number(r.tokens), cost: Number(r.cost), messages: Number(r.messages), activeDays: Number(r.active_days), sessions: Number(r.sessions),
+  }));
+}

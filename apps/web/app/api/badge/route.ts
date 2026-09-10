@@ -17,12 +17,12 @@ export async function badgeFor(user: string, sp: URLSearchParams): Promise<Respo
   const row = await getUser(user);
   if (!row) {
     const svg = renderBadge({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, totalTokens: 0, cost: 0, messageCount: 0, activeDays: 0, sessionCount: 0 },
-      { level: 'C', percentile: 100, windowDays: 30, signals: { tokens: 0, activeDays: 0, messages: 0, sessions: 0 } },
+      { level: 'C', percentile: 100, score: 0, windowDays: 30, signals: { tokens: 0, activeDays: 0, messages: 0, sessions: 0 } },
       { style, label: label ?? 'tokseal', metrics: ['grade'] }).replace(/>C</, '>NOT SEALED<');
     return new Response(svg, { status: 404, headers: headers(300) });
   }
   const s = row.submission;
-  const svg = renderBadge(s.totals, { level: s.grade, percentile: s.percentile, windowDays: 30, signals: { tokens: 0, activeDays: 0, messages: 0, sessions: 0 } }, {
+  const svg = renderBadge(s.totals, { level: s.grade, percentile: s.percentile, score: 1 - s.percentile / 100, windowDays: 30, signals: { tokens: 0, activeDays: 0, messages: 0, sessions: 0 } }, {
     style, label, metrics: metrics.length ? metrics : undefined, streak: row.streak,
   });
   return new Response(svg, { headers: headers(300) });

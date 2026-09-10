@@ -132,7 +132,9 @@ so no single number can carry it:
 Signals are smoothed with an exponential CDF (the curve
 [github-readme-stats](https://github.com/anuraghazra/github-readme-stats) uses
 for its rank), so there are no hard cliffs. The percentile is "top X%" — lower
-is better.
+is better. Until 50 people are on the board the percentile comes from fixed
+medians; after that it is your rank in the real population, re-derived on every
+submit and nightly.
 
 ## Acknowledgements
 

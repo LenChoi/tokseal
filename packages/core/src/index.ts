@@ -13,7 +13,7 @@ export { parseDroid, parseDroidSession, normalizeDroidModel, droidBaseDir } from
 export { importExport, parseImports, listImports, importsDir } from './imports.js';
 export { estimateTokens } from './estimate.js';
 export { aggregate } from './aggregate.js';
-export { grade, gradeFromTotals, totalsFromDays, windowDays, GRADE_WINDOW_DAYS, type Grade, type GradeLevel } from './grade.js';
+export { grade, gradeFromTotals, totalsFromDays, windowDays, levelFor, GRADE_WINDOW_DAYS, POPULATION_MIN, type Grade, type GradeLevel } from './grade.js';
 export { renderGraph, type GraphOptions } from './graph.js';
 export { pixelText, pixelTextWidth, pixelSprite } from './pixelfont.js';
 export { renderCard, humanTokens, type CardTheme, type CardOptions } from './card.js';

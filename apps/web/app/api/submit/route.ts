@@ -4,7 +4,7 @@
  * 30-day window, the grade, and the streak server-side. The client's grade is
  * never trusted.
  */
-import { validateSubmission, totalsFromDays, windowDays, gradeFromTotals, GRADE_WINDOW_DAYS, reprice, sanityCheck, anomalyCheck, type DayBucket } from '@tokseal/core';
+import { validateSubmission, totalsFromDays, windowDays, gradeFromTotals, GRADE_WINDOW_DAYS, POPULATION_MIN, reprice, sanityCheck, anomalyCheck, type DayBucket } from '@tokseal/core';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { hashToken } from '@/lib/tokens';
 import { DEMO, SITE_URL } from '@/lib/env';
@@ -102,6 +102,7 @@ export async function POST(req: Request) {
     window_active: win.activeDays,
     window_sessions: Math.round(win.sessionCount),
     streak_days: streak,
+    score: Number(g.score.toFixed(6)),
     flagged: flags.length > 0,
     flag_reasons: flags,
     payload,
@@ -117,11 +118,21 @@ export async function POST(req: Request) {
   });
   await sb.from('api_tokens').update({ last_used_at: now }).eq('token_hash', tokenHash);
 
+  // Population grading: once enough users exist, percentiles come from the real distribution.
+  let populationGraded = false;
+  const { count } = await sb.from('submissions').select('*', { count: 'exact', head: true }).eq('flagged', false);
+  if ((count ?? 0) >= POPULATION_MIN) {
+    const { error: re } = await sb.rpc('regrade_all');
+    populationGraded = !re;
+  }
+  const { data: finalRow } = await sb.from('submissions').select('grade, percentile').eq('user_id', userId).maybeSingle();
+
   return Response.json({
     ok: true,
     login,
-    grade: g.level,
-    percentile: Number(g.percentile.toFixed(1)),
+    grade: (finalRow?.grade as string) ?? g.level,
+    percentile: Number(finalRow?.percentile ?? g.percentile.toFixed(1)),
+    populationGraded,
     allTimeTokens: Math.round(allTime.totalTokens),
     windowTokens: Math.round(win.totalTokens),
     streak,

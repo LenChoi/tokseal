@@ -22,6 +22,8 @@ export type GradeLevel = (typeof LEVELS)[number];
 export type Grade = {
   level: GradeLevel;
   percentile: number; // top X%
+  /** 0..1 blended signal score; the server ranks users by this once the population is large enough. */
+  score: number;
   windowDays: number;
   signals: {
     tokens: number;
@@ -30,6 +32,13 @@ export type Grade = {
     sessions: number;
   };
 };
+
+export function levelFor(percentile: number): GradeLevel {
+  return LEVELS[THRESHOLDS.findIndex((th) => percentile <= th)] ?? 'C';
+}
+
+/** Below this many ranked users, percentiles come from fixed medians; above, from the real distribution. */
+export const POPULATION_MIN = 50;
 
 // exponential CDF: diminishing returns, saturates near 1.
 const cdf = (x: number) => 1 - 2 ** -x;
@@ -52,11 +61,12 @@ export function gradeFromTotals(t: Pick<Totals, 'totalTokens' | 'activeDays' | '
     acc += s.weight * cdf(s.value / s.median);
     total += s.weight;
   }
-  const percentile = (1 - acc / total) * 100;
-  const level = LEVELS[THRESHOLDS.findIndex((th) => percentile <= th)] ?? 'C';
+  const score = acc / total;
+  const percentile = (1 - score) * 100;
   return {
-    level,
+    level: levelFor(percentile),
     percentile,
+    score,
     windowDays,
     signals: { tokens: t.totalTokens, activeDays: t.activeDays, messages: t.messageCount, sessions: t.sessionCount },
   };

@@ -144,3 +144,51 @@ create policy "users read own log" on public.submission_log for select using (au
 create or replace function public.purge_device_codes() returns void language sql security definer as $$
   delete from public.device_codes where expires_at < now();
 $$;
+-- Distribution-based grading. Each submission stores the raw blended score;
+-- once at least 50 unflagged users exist, percentiles are re-derived from the
+-- real population (percent_rank of score) instead of fixed medians.
+
+alter table public.submissions add column score numeric(8,6) not null default 0;
+
+create or replace function public.regrade_all() returns int language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  select count(*) into n from public.submissions where not flagged;
+  if n < 50 then return n; end if;
+  with ranked as (
+    select user_id, 100.0 * (rank() over (order by score desc) - 1) / greatest(n - 1, 1) as pct
+    from public.submissions where not flagged
+  )
+  update public.submissions s
+     set percentile = greatest(0.01, round(r.pct::numeric, 2)),
+         grade = case when r.pct <= 1 then 'S' when r.pct <= 12.5 then 'A+' when r.pct <= 25 then 'A'
+                      when r.pct <= 37.5 then 'A-' when r.pct <= 50 then 'B+' when r.pct <= 62.5 then 'B'
+                      when r.pct <= 75 then 'B-' when r.pct <= 87.5 then 'C+' else 'C' end,
+         payload = jsonb_set(jsonb_set(s.payload, '{percentile}', to_jsonb(greatest(0.01, round(r.pct::numeric, 2)))), '{grade}',
+                   to_jsonb(case when r.pct <= 1 then 'S' when r.pct <= 12.5 then 'A+' when r.pct <= 25 then 'A'
+                      when r.pct <= 37.5 then 'A-' when r.pct <= 50 then 'B+' when r.pct <= 62.5 then 'B'
+                      when r.pct <= 75 then 'B-' when r.pct <= 87.5 then 'C+' else 'C' end))
+    from ranked r where r.user_id = s.user_id;
+  return n;
+end $$;
+-- Monthly season board: rank by tokens used within one calendar month (UTC), from usage_days.
+create or replace function public.season_leaderboard(month text)
+returns table (login text, name text, avatar_url text, tokens bigint, cost numeric, messages bigint, active_days int, sessions bigint, rank bigint)
+language sql security definer set search_path = public stable as $$
+  with m as (select to_date(month || '-01', 'YYYY-MM-DD') as start),
+  agg as (
+    select d.user_id, sum(d.total_tokens)::bigint as tokens, sum(d.cost) as cost, sum(d.message_count)::bigint as messages,
+           count(*) filter (where d.message_count > 0)::int as active_days, sum(d.session_count)::bigint as sessions
+    from public.usage_days d, m
+    where d.date >= m.start and d.date < (m.start + interval '1 month')
+    group by d.user_id
+  )
+  select p.login, p.name, p.avatar_url, a.tokens, a.cost, a.messages, a.active_days, a.sessions,
+         rank() over (order by a.tokens desc) as rank
+  from agg a
+  join public.profiles p on p.id = a.user_id
+  left join public.submissions s on s.user_id = a.user_id
+  where coalesce(s.flagged, false) = false and a.tokens > 0
+  order by a.tokens desc
+  limit 200;
+$$;

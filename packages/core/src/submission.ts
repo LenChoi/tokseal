@@ -107,6 +107,7 @@ export function gradeFromSubmission(s: Submission): Grade {
   return {
     level: s.grade,
     percentile: s.percentile,
+    score: 1 - s.percentile / 100,
     windowDays: 30,
     signals: {
       tokens: s.totals.totalTokens,
